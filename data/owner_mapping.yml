@@ -1,0 +1,37 @@
+# owner_mapping.yml
+# Maps issue signal tags to recommended squad owners.
+# Used by the orchestrator to suggest triage ownership.
+# Extend this file as new issue types and owners are identified.
+
+payment_failure:
+  owner: "Commerce + Payments Squad"
+  contact: "commerce-payments@simons.ca (placeholder)"
+  escalation: "Payment processor vendor support"
+
+checkout_friction:
+  owner: "Commerce + Payments Squad"
+  contact: "commerce-payments@simons.ca (placeholder)"
+
+inventory_discrepancy:
+  owner: "Inventory + OMS Squad"
+  contact: "oms-team@simons.ca (placeholder)"
+
+fulfillment_delay:
+  owner: "Fulfillment + Logistics Squad"
+  contact: "fulfillment@simons.ca (placeholder)"
+
+product_display_error:
+  owner: "Frontend Commerce Squad"
+  contact: "frontend-commerce@simons.ca (placeholder)"
+
+search_relevance:
+  owner: "Search + Discovery Squad"
+  contact: "search-team@simons.ca (placeholder)"
+
+campaign_traffic_anomaly:
+  owner: "Marketing Technology Squad"
+  contact: "martech@simons.ca (placeholder)"
+
+unknown:
+  owner: "Unified Commerce Operations (General)"
+  contact: "commerce-ops@simons.ca (placeholder)"

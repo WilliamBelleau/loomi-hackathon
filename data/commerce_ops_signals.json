@@ -1,0 +1,11 @@
+[
+  {
+    "system": "Payment Gateway",
+    "error_type": "authorization_failure",
+    "error_rate": 0.23,
+    "threshold": 0.05,
+    "threshold_breached": true,
+    "affected_path": "Payment Path B — Visa/Mastercard (Quebec routing)",
+    "notes": "Authorization failure rate of 23% on Payment Path B, well above the 5% alert threshold. Payment Path A (national) is unaffected at 1.8% failure rate. Issue appears routing-specific."
+  }
+]

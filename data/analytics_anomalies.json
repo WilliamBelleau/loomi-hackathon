@@ -1,0 +1,32 @@
+[
+  {
+    "metric_name": "checkout_start_conversion_rate",
+    "current_value": 0.328,
+    "baseline_value": 0.400,
+    "delta_pct": -18.0,
+    "channel": "Mobile Web",
+    "region": "Quebec",
+    "is_anomaly": true,
+    "notes": "Checkout-start conversion dropped 18% vs 7-day rolling baseline. Drop began approximately 4 hours ago. No prior seasonal pattern explains this timing."
+  },
+  {
+    "metric_name": "add_to_cart_rate",
+    "current_value": 0.412,
+    "baseline_value": 0.410,
+    "delta_pct": 0.5,
+    "channel": "Mobile Web",
+    "region": "Quebec",
+    "is_anomaly": false,
+    "notes": "Add-to-cart rate is stable vs baseline. Product demand is not the driver of the checkout drop."
+  },
+  {
+    "metric_name": "checkout_start_conversion_rate",
+    "current_value": 0.395,
+    "baseline_value": 0.401,
+    "delta_pct": -1.5,
+    "channel": "Desktop",
+    "region": "Quebec",
+    "is_anomaly": false,
+    "notes": "Desktop conversion in Quebec is within normal variance. Issue appears Mobile Web specific."
+  }
+]

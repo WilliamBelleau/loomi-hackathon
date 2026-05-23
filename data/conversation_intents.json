@@ -1,0 +1,28 @@
+[
+  {
+    "intent_name": "payment_failed",
+    "spike_pct": 42.0,
+    "representative_phrases": [
+      "my payment keeps failing",
+      "card declined but I know it works",
+      "can't pay — page just reloads",
+      "payment error at checkout"
+    ],
+    "channel": "Mobile Web",
+    "region": "Quebec",
+    "notes": "Intent volume up 42% vs 7-day baseline. Spike began approximately 3.5 hours ago, aligned with analytics conversion drop."
+  },
+  {
+    "intent_name": "cannot_complete_order",
+    "spike_pct": 38.0,
+    "representative_phrases": [
+      "my order won't go through",
+      "stuck on payment screen",
+      "tried three times and it keeps failing",
+      "order not placing — what's happening?"
+    ],
+    "channel": "Mobile Web",
+    "region": "Quebec",
+    "notes": "Intent volume up 38% vs 7-day baseline. Co-occurring with payment_failed intent, suggesting same underlying issue."
+  }
+]
