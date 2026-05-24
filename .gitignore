@@ -32,3 +32,6 @@ Thumbs.db
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Local dev scratch (screenshots, temp files — not for repo)
+scratch/

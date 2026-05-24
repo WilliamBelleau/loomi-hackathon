@@ -6,13 +6,24 @@
 
 ---
 
+## ⚡ Quick Start
+
+```powershell
+pip install -r requirements.txt                      # install dependencies
+python -m pytest -v                                  # run 49 tests (all should pass)
+python -m streamlit run app/ui_streamlit.py          # launch demo → http://localhost:8501
+```
+
+Click **Run Triage** with the default prompt. No setup, no credentials, no network calls required.
+
+---
+
 ## Project Overview
 
-The **Simons Unified Commerce Signal Agent** is an agentic decision-support tool
-that correlates behavioral analytics, customer conversation signals, and operational
-error data to produce a structured triage brief for human review.
+Commerce operations teams lose hours correlating signals across disconnected dashboards
+when customers are stuck. This agent asks one question and delivers a scored,
+human-reviewable triage brief in seconds — without requiring expert knowledge.
 
-A business analyst asks:
 > *"What customer experience friction should we investigate today?"*
 
 The agent:

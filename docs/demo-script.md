@@ -15,6 +15,22 @@
 
 ---
 
+## What Judges Should Observe
+
+*For evaluators reviewing this repo or watching the demo — here are the five key signals to look for:*
+
+| # | What to observe | Where to see it |
+|---|---|---|
+| 1 | **Visible tool trace** — four adapters called in sequence, all labeled CALLED (MOCK) | Immediately after clicking Run Triage |
+| 2 | **Transparent scoring** — every severity/confidence point traced to a named signal | Scoring reasoning section (open by default) |
+| 3 | **Evidence correlation** — Analytics + Conversations + Ops all point to the same issue | Evidence cards, color-coded by source |
+| 4 | **Draft incident note** — pre-structured, Jira-style, display-only | Draft Incident / Jira-Style Note section |
+| 5 | **Human review gate** — always visible, always active, enforced by schema and tests | Red gate box at the bottom of the triage output |
+| 6 | **Simulated actions only** — no automated action, no real ticket | Simulated Actions disclaimer below the gate |
+| 7 | **Adapter-first architecture** — one method body replacement per adapter to go live | `tools/` directory, each adapter has a documented Phase 2 swap point |
+
+---
+
 ## Demo Narrative (5–6 minutes)
 
 ### 0:00 — 0:45 | Context and Problem (45 seconds)
