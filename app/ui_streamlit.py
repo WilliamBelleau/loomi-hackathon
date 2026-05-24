@@ -57,8 +57,8 @@ html, body, .stApp,
 }
 section[data-testid="stSidebar"] { display: none !important; }
 
-/* ── Default text ────────────────────────────────────────────────────────── */
-p, li, span, label, div { color: inherit; }
+/* ── Default text ─────────────────────────────────────────────────── */
+/* Intentionally not using broad color:inherit to avoid cascade pollution */
 
 /* ── Headings inside st.markdown ─────────────────────────────────────────── */
 [data-testid="stMarkdownContainer"] h3,
@@ -394,7 +394,19 @@ if run_clicked:
         margin-bottom:0.75rem;
         font-family:'Inter','Helvetica Neue',Arial,sans-serif;
     ">📋 Triage Brief</div>""")
-    st.markdown(f"### {brief.issue_title}")
+    # Issue title — using st.html to avoid Streamlit blue link coloring on headings
+    issue_escaped = brief.issue_title.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    st.html(f"""
+    <div style="
+        font-family: 'Cormorant Garamond', Georgia, serif;
+        font-size: 1.55rem;
+        font-weight: 600;
+        color: #1d1d1b;
+        line-height: 1.25;
+        margin: 0.5rem 0 1rem 0;
+        letter-spacing: 0.01em;
+    ">{issue_escaped}</div>
+    """)
 
     col_a, col_b, col_c = st.columns(3)
     with col_a:
@@ -404,11 +416,34 @@ if run_clicked:
         st.metric("Region", brief.affected_region)
         st.metric("Recommended Owner", brief.owner_recommendation)
     with col_c:
-        st.markdown("**Customer Impact**")
-        st.caption(brief.customer_impact)
+        cust_impact_escaped = brief.customer_impact.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        st.html(f"""
+        <div style="
+            font-size:0.75rem; font-weight:600; letter-spacing:0.08em;
+            text-transform:uppercase; color:#6f6b64;
+            margin-bottom:0.4rem; font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+        ">Customer Impact</div>
+        <div style="
+            font-size:0.84rem; color:#1d1d1b; line-height:1.5;
+            font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+        ">{cust_impact_escaped}</div>
+        """)
 
-    st.markdown("**Business Impact**")
-    st.info(brief.business_impact)
+    biz_impact_escaped = brief.business_impact.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+    st.html(f"""
+    <div style="
+        background: #f0faf5;
+        border: 1px solid #a7f3d0;
+        border-left: 4px solid #007853;
+        border-radius: 3px;
+        padding: 0.75rem 1rem;
+        font-size: 0.87rem;
+        color: #1d1d1b;
+        line-height: 1.55;
+        font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+        margin-top: 0.5rem;
+    ">{biz_impact_escaped}</div>
+    """)
 
     # ── Evidence cards ────────────────────────────────────────────────────────
     st.markdown("---")
@@ -450,8 +485,20 @@ if run_clicked:
         margin-bottom:0.65rem;
         font-family:'Inter','Helvetica Neue',Arial,sans-serif;
     ">🔎 Suspected Root Causes</div>""")
+    causes_html = ""
     for i, cause in enumerate(brief.suspected_root_causes, 1):
-        st.markdown(f"**{i}.** {cause}")
+        c = cause.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        causes_html += f"""
+        <div style="
+            display:flex; gap:0.6rem; align-items:baseline;
+            margin-bottom:0.55rem;
+            font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+            font-size:0.88rem; color:#1d1d1b; line-height:1.5;
+        ">
+          <span style="flex-shrink:0; font-weight:700; color:#1d1d1b;">{i}.</span>
+          <span style="color:#1d1d1b;">{c}</span>
+        </div>"""
+    st.html(f"<div spellcheck='false'>{causes_html}</div>")
 
     # ── Recommended next steps ────────────────────────────────────────────────
     st.markdown("---")
@@ -462,8 +509,20 @@ if run_clicked:
         margin-bottom:0.65rem;
         font-family:'Inter','Helvetica Neue',Arial,sans-serif;
     ">✅ Recommended Next Steps</div>""")
+    steps_html = ""
     for i, step in enumerate(brief.recommended_next_steps, 1):
-        st.markdown(f"{i}. {step}")
+        s = step.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        steps_html += f"""
+        <div style="
+            display:flex; gap:0.6rem; align-items:baseline;
+            margin-bottom:0.5rem;
+            font-family:'Inter','Helvetica Neue',Arial,sans-serif;
+            font-size:0.88rem; color:#1d1d1b; line-height:1.5;
+        ">
+          <span style="flex-shrink:0; min-width:1.2rem; font-weight:700; color:#007853;">{i}.</span>
+          <span style="color:#1d1d1b;">{s}</span>
+        </div>"""
+    st.html(f"<div spellcheck='false'>{steps_html}</div>")
 
     # ── Draft incident note ───────────────────────────────────────────────────
     st.markdown("---")
@@ -474,7 +533,26 @@ if run_clicked:
         margin-bottom:0.65rem;
         font-family:'Inter','Helvetica Neue',Arial,sans-serif;
     ">📝 Draft Incident / Jira-Style Note</div>""")
-    st.code(brief.draft_incident_note, language="text")
+    note_escaped = (brief.draft_incident_note
+        .replace('&', '&amp;')
+        .replace('<', '&lt;')
+        .replace('>', '&gt;'))
+    st.html(f"""
+    <pre style="
+        background: #1e293b;
+        color: #e2e8f0;
+        border: 1px solid #334155;
+        border-radius: 4px;
+        padding: 1.25rem 1.4rem;
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.81rem;
+        line-height: 1.65;
+        overflow-x: auto;
+        white-space: pre-wrap;
+        word-break: break-word;
+        margin: 0;
+    ">{note_escaped}</pre>
+    """)
 
     # ── Human review gate ─────────────────────────────────────────────────────
     st.html("""
