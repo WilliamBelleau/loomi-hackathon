@@ -8,7 +8,7 @@
 ## Pre-Demo Setup (before the clock starts)
 
 - Open terminal in project root
-- Run: `streamlit run app/ui_streamlit.py`
+- Run: `python -m streamlit run app/ui_streamlit.py`
 - Browser opens at `http://localhost:8501`
 - Default prompt is pre-filled: "What customer experience friction should we investigate today?"
 - Verify the mock banner is visible at the top

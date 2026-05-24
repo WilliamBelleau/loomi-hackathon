@@ -85,8 +85,8 @@ pip install -r requirements.txt
 
 ### 2. Run the Streamlit UI
 
-```bash
-streamlit run app/ui_streamlit.py
+```powershell
+python -m streamlit run app/ui_streamlit.py
 ```
 
 Opens at `http://localhost:8501`.
@@ -95,14 +95,8 @@ Click **Run Triage** with the default prompt to run the demo scenario.
 
 ### 3. Run tests
 
-```bash
-pytest
-```
-
-Or with verbose output:
-
-```bash
-pytest -v
+```powershell
+python -m pytest -v
 ```
 
 ---
