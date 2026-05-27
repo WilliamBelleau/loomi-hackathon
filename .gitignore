@@ -44,3 +44,7 @@ scripts/mcp_discovery_output*.txt
 # Any local MCP exploration notes (may capture endpoint or schema details)
 mcp_notes*.md
 mcp_notes*.txt
+
+# Live Evidence Snapshot
+data/live_evidence_snapshot.json
+

@@ -27,6 +27,10 @@ class AnalyticsSignal(BaseModel):
     region: str = Field(..., description="e.g. 'Quebec', 'Ontario', 'All'")
     is_anomaly: bool = Field(default=True)
     notes: Optional[str] = None
+    source_label: Optional[str] = Field(
+        default=None,
+        description="Evidence source badge: one of EvidenceSourceLabel values. None = MOCK_FIXTURE.",
+    )
 
 
 class ConversationSignal(BaseModel):
@@ -86,7 +90,25 @@ class EvidenceBundle(BaseModel):
 class TraceStatus(str, Enum):
     CALLED_MOCK = "CALLED (MOCK)"
     CALLED_LIVE = "CALLED (LIVE)"
+    CALLED_SNAPSHOT = "CALLED (SNAPSHOT)"
     SKIPPED = "SKIPPED"
+
+
+class EvidenceMode(str, Enum):
+    """Controls which evidence source the orchestrator uses."""
+
+    DEMO = "demo"          # default — mock fixture data, always fast
+    SNAPSHOT = "snapshot"  # reads data/live_evidence_snapshot.json
+    LIVE = "live"          # same as SNAPSHOT at Streamlit level (reads file)
+
+
+class EvidenceSourceLabel(str, Enum):
+    """Source label attached to each evidence item in the triage brief UI."""
+
+    LIVE_BLOOMREACH_MCP = "LIVE BLOOMREACH MCP"
+    MCP_SNAPSHOT = "MCP SNAPSHOT"
+    SYNTHETIC_COMMERCE_OPS = "SYNTHETIC COMMERCE OPS"
+    MOCK_FIXTURE = "MOCK FIXTURE"
 
 
 class ToolTraceEntry(BaseModel):

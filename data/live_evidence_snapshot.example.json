@@ -1,0 +1,32 @@
+{
+  "fetched_at": "2026-05-27T11:00:00Z",
+  "project_display_name": "zesty-mongoose",
+  "checkout_trend": [
+    {"date": "2026-05-14", "count": 12},
+    {"date": "2026-05-15", "count": 15}
+  ],
+  "cart_trend": [
+    {"date": "2026-05-14", "count": 45},
+    {"date": "2026-05-15", "count": 50}
+  ],
+  "funnel_overall": {
+    "sessions": 744,
+    "checkouts": 177,
+    "conversion_rate": 0.2379
+  },
+  "funnel_mobile": {
+    "sessions": 435,
+    "checkouts": 101,
+    "conversion_rate": 0.2321
+  },
+  "campaign_spike_detected": false,
+  "device_breakdown": {
+    "Android": 296,
+    "iPhone": 60,
+    "iPad": 28
+  },
+  "queries_attempted": 5,
+  "queries_succeeded": 5,
+  "errors": [],
+  "note": "EXAMPLE ONLY — placeholder values, not real MCP data"
+}
