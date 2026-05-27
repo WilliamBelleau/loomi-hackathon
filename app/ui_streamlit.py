@@ -227,7 +227,7 @@ st.html("""
 mode_options = {
     EvidenceMode.DEMO.value: "Demo (Mock Fixture) — Default",
     EvidenceMode.SNAPSHOT.value: "Snapshot (Sanitized File)",
-    EvidenceMode.LIVE.value: "Live MCP (Streamable HTTP)",
+    EvidenceMode.LIVE.value: "Live MCP Evidence (Snapshot-backed)",
 }
 
 col_mode, col_empty = st.columns([1, 2])
@@ -239,6 +239,12 @@ with col_mode:
         label_visibility="collapsed"
     )
 evidence_mode = EvidenceMode(selected_mode_val)
+
+import os
+from pathlib import Path
+
+snapshot_path = Path("data/live_evidence_snapshot.json")
+snapshot_exists = snapshot_path.exists()
 
 if evidence_mode == EvidenceMode.DEMO:
     banner_html = """
@@ -252,6 +258,16 @@ if evidence_mode == EvidenceMode.DEMO:
       No production data. No PII.
     </div>
     """
+elif not snapshot_exists:
+    banner_html = """
+    <div style="
+        background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; border-left: 4px solid #F59E0B;
+        border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
+        margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    ">
+      &#9888;&nbsp; <strong>No MCP snapshot found. Falling back to Demo Mode.</strong>
+    </div>
+    """
 elif evidence_mode == EvidenceMode.SNAPSHOT:
     banner_html = """
     <div style="
@@ -259,8 +275,7 @@ elif evidence_mode == EvidenceMode.SNAPSHOT:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>SNAPSHOT MODE</strong> &mdash; Reading sanitized MCP data from
-      data/live_evidence_snapshot.json. No live network calls.
+      &#9432;&nbsp; <strong>SNAPSHOT MODE</strong> &mdash; MCP SNAPSHOT — captured from live Bloomreach Analytics MCP.
     </div>
     """
 else:
@@ -270,8 +285,7 @@ else:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>LIVE MCP MODE</strong> &mdash; Simulating live connection to Bloomreach MCP.
-      (Currently reads from snapshot file in this phase).
+      &#9432;&nbsp; <strong>LIVE MCP MODE</strong> &mdash; Using sanitized evidence captured from live Bloomreach Analytics MCP. Streamlit reads the snapshot file; it does not manage OAuth.
     </div>
     """
 
@@ -323,7 +337,9 @@ if run_clicked:
     # ── Tool trace ────────────────────────────────────────────────────────────
     _TRACE_DISPLAY_LABELS = {
         "Analytics MCP Adapter":            "Bloomreach Loomi Connect — Analytics MCP",
-        "Conversations MCP Adapter":        "Bloomreach Loomi Connect — Conversations MCP",
+        "Analytics MCP Adapter (LIVE BLOOMREACH MCP)": "Bloomreach Loomi Connect — Analytics MCP",
+        "Analytics MCP Adapter (MCP SNAPSHOT)": "Bloomreach Loomi Connect — Analytics MCP",
+        "Conversations MCP Adapter":        "Synthetic Customer Session Signals",
         "Synthetic Ops Adapter":            "Synthetic Commerce Ops Adapter",
         "Marketing MCP Adapter (Optional)": "Optional Bloomreach Marketing MCP Context",
     }
@@ -668,8 +684,8 @@ else:
         </div>
 
         <div style="background:#fff; border:1px solid #dedbd3; border-left:4px solid #8b5cf6; border-radius:2px; padding:0.9rem 1.1rem;">
-          <div style="font-size:0.62rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#6f6b64; margin-bottom:0.2rem;">Bloomreach Loomi Connect</div>
-          <div style="font-size:0.9rem; font-weight:600; color:#1d1d1b; margin-bottom:0.25rem;">Conversations MCP</div>
+          <div style="font-size:0.62rem; font-weight:700; letter-spacing:0.15em; text-transform:uppercase; color:#6f6b64; margin-bottom:0.2rem;">Synthetic Data Fixture</div>
+          <div style="font-size:0.9rem; font-weight:600; color:#1d1d1b; margin-bottom:0.25rem;">Customer Session Signals</div>
           <div style="font-size:0.78rem; color:#6f6b64; line-height:1.45; margin-bottom:0.55rem;">Customer friction intent trends &middot; representative phrase extraction</div>
           <span style="display:inline-block; font-size:0.62rem; font-weight:700; letter-spacing:0.1em; text-transform:uppercase; background:#FEF3C7; color:#92400E; padding:0.12rem 0.5rem; border-radius:2px;">&#9888; Mocked Today</span>
         </div>
