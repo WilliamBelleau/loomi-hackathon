@@ -2,20 +2,39 @@
 discover_mcp_tools.py — Standalone Bloomreach Loomi Connect MCP Discovery Script.
 
 Purpose:
-    List available tools from the Bloomreach Loomi Connect MCP server.
-    Used to confirm real tool names and schemas before writing any live adapter code.
+    Assist with MCP tool discovery as a supplementary reference.
+    The PRIMARY recommended path for discovery is IDE-mediated:
+    configure the Loomi MCP server URL in Antigravity (or another supported
+    MCP-compatible client) and use the IDE's browser-auth flow.
+    See docs/antigravity-mcp-test-plan.md for structured test prompts.
+
+When to use this script:
+    - Only if IDE-mediated discovery is not available.
+    - Only if Bloomreach explicitly provides token-based programmatic access.
+    - Token mode is experimental and not a confirmed Bloomreach-supported pattern.
 
 Usage:
-    1. Set environment variables (see .env.example for variable names):
-           export LOOMI_MCP_ANALYTICS_MARKETING_URL="<url from Bloomreach sandbox portal>"
-           export LOOMI_MCP_AUTH_MODE="browser"          # default; change only if confirmed
-           export LOOMI_MCP_TOKEN="<token>"              # only if programmatic auth confirmed
+    Step 1 (RECOMMENDED): Configure Loomi MCP in Antigravity or another MCP client.
+        - Set the Analytics/Marketing URL in your IDE MCP settings.
+        - Browser auth triggers automatically on first tool call (Bloomreach SSO).
+        - No API key or token needed.
+        - See docs/antigravity-mcp-test-plan.md.
 
-    2. Run:
-           python scripts/discover_mcp_tools.py
+    Step 2 (FALLBACK): Run this script with no token (browser auth mode).
+        - Set LOOMI_MCP_ANALYTICS_MARKETING_URL and/or LOOMI_MCP_CONVERSATIONS_URL.
+        - The script will explain the browser-auth limitation and exit cleanly.
+        - A sanitized summary JSON is saved for reference.
 
-    3. Output is saved (sanitized) to:
-           scripts/mcp_discovery_output.json  (gitignored)
+    Step 3 (EXPERIMENTAL — not recommended unless Bloomreach confirms):
+        - Set LOOMI_MCP_AUTH_MODE=token and LOOMI_MCP_TOKEN=<value>.
+        - Only do this if Bloomreach explicitly provides token-based programmatic access.
+        - Do not guess or infer a token value.
+
+    Run:
+        python scripts/discover_mcp_tools.py
+
+    Output is saved (sanitized) to:
+        scripts/mcp_discovery_output.json  (gitignored)
 
 Important constraints:
     - This script is STANDALONE. It is not imported by the app, agent, or tools packages.
@@ -23,15 +42,8 @@ Important constraints:
     - It does NOT affect mock-first behavior. LOOMI_MCP_LIVE is not read here.
     - All URLs and tokens are masked in terminal output and in the saved output file.
     - No raw credentials, raw tokens, or full endpoint URLs are ever written to disk.
-    - If programmatic auth is not available (browser-auth-only), the script exits
-      cleanly with a clear message rather than pretending to work.
-
-Limitations:
-    - Loomi Connect MCP uses Streamable HTTP transport with browser-based auth.
-    - Token-based programmatic access is TBD / unconfirmed by Bloomreach.
-    - If LOOMI_MCP_AUTH_MODE=browser and no token is present, the script will
-      explain why it cannot connect programmatically and suggest alternatives.
-    - Do not modify this script to hardcode any URL or credential.
+    - If programmatic auth is not available, the script exits cleanly with a clear message.
+    - Normal Loomi Connect auth is browser SSO. No API key or custom header is needed.
 
 Output file:
     scripts/mcp_discovery_output.json — gitignored, sanitized (no raw secrets or URLs).
@@ -129,34 +141,31 @@ def _check_environment() -> list[str]:
     return problems
 
 
-def _explain_browser_auth_limitation() -> str:
+def _explain_ide_discovery_recommendation() -> str:
     return textwrap.dedent("""
         ┌─────────────────────────────────────────────────────────────────────┐
-        │  Programmatic Discovery Not Available (Browser Auth Mode)           │
+        │  Recommended: Use Antigravity (IDE-Mediated MCP Discovery)         │
         ├─────────────────────────────────────────────────────────────────────┤
         │                                                                     │
         │  LOOMI_MCP_AUTH_MODE=browser (default).                             │
         │                                                                     │
-        │  Loomi Connect MCP uses browser-based Bloomreach authentication.    │
-        │  This means a human must authenticate in a browser session first,   │
-        │  and an MCP client (Claude Desktop, Cursor) holds the session.      │
-        │  A standalone Python script cannot complete this flow automatically. │
+        │  Loomi Connect MCP uses browser-based Bloomreach SSO / OIDC.       │
+        │  This is the Bloomreach-supported path. No API key or token needed. │
+        │  A standalone Python script cannot complete the browser-auth flow.  │
         │                                                                     │
-        │  OPTIONS:                                                            │
-        │  1. Connect via a supported MCP client (Claude Desktop / Cursor)    │
-        │     and use the client's tool inspector to list available tools.    │
-        │     Record the tool names in docs/mcp-integration-plan.md.          │
+        │  RECOMMENDED ACTION:                                                 │
+        │  1. Configure the Loomi MCP server URL in Antigravity (or Cursor /  │
+        │     Claude Code / VS Code with MCP extension).                      │
+        │  2. Browser auth triggers automatically on the first tool call.     │
+        │  3. Sessions persist for up to 30 days.                             │
+        │  4. Use the IDE to list tools and explore available capabilities.   │
+        │  5. Record confirmed tool names in docs/mcp-integration-plan.md.   │
+        │  See: docs/antigravity-mcp-test-plan.md for structured prompts.    │
         │                                                                     │
-        │  2. Ask Bloomreach if a session token can be extracted after        │
-        │     browser-auth and used for programmatic access.                  │
-        │     If yes: set LOOMI_MCP_AUTH_MODE=token and LOOMI_MCP_TOKEN=...  │
-        │     then re-run this script.                                        │
-        │                                                                     │
-        │  3. If Bloomreach provides an API key or OAuth client credentials   │
-        │     for sandbox use, update this script accordingly and document    │
-        │     the method in docs/mcp-integration-plan.md.                    │
-        │                                                                     │
-        │  NEXT STEP: Check the hackathon Slack for auth details.             │
+        │  EXPERIMENTAL (not recommended unless Bloomreach confirms):         │
+        │  If Bloomreach explicitly provides token-based programmatic access,  │
+        │  set LOOMI_MCP_AUTH_MODE=token and LOOMI_MCP_TOKEN=<value>,        │
+        │  then re-run this script. Do not guess or infer a token value.      │
         └─────────────────────────────────────────────────────────────────────┘
     """).strip()
 
@@ -312,9 +321,9 @@ def main() -> int:
         print(f"Token hint:         {_mask_token(TOKEN)}")
     print()
 
-    # --- Browser auth path: explain limitation and exit cleanly ---
+    # --- Browser auth path: explain recommendation and exit cleanly ---
     if AUTH_MODE == "browser":
-        print(_explain_browser_auth_limitation())
+        print(_explain_ide_discovery_recommendation())
         print()
 
         # Save a summary record so there is a gitignored artifact showing the attempt.
@@ -322,17 +331,18 @@ def main() -> int:
             "script": "discover_mcp_tools.py",
             "timestamp_utc": datetime.now(tz=timezone.utc).isoformat(),
             "auth_mode": "browser",
-            "result": "skipped — programmatic discovery not possible with browser auth mode",
+            "result": "skipped — use IDE-mediated discovery (see docs/antigravity-mcp-test-plan.md)",
             "endpoints": {
                 "analytics_marketing_url": _mask_url(ANALYTICS_MARKETING_URL),
                 "conversations_url": _mask_url(CONVERSATIONS_URL),
             },
             "tools_found": [],
             "next_steps": [
-                "Use a supported MCP client (Claude Desktop / Cursor) to list tools manually.",
+                "Configure Loomi MCP in Antigravity (or another supported MCP client).",
+                "Browser auth triggers automatically on the first tool call (Bloomreach SSO).",
+                "Use the IDE to list and explore available tools.",
                 "Record confirmed tool names in docs/mcp-integration-plan.md.",
-                "Ask Bloomreach if a session token can be used for programmatic access.",
-                "If token access is confirmed, set LOOMI_MCP_AUTH_MODE=token and re-run.",
+                "See docs/antigravity-mcp-test-plan.md for structured discovery prompts.",
             ],
         }
         OUTPUT_PATH.write_text(json.dumps(summary, indent=2), encoding="utf-8")
