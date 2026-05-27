@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from agent.schemas import AnalyticsSignal, EvidenceSourceLabel
 
-_SNAPSHOT_PATH = Path(__file__).parent.parent / "data" / "live_evidence_snapshot.json"
+_SNAPSHOT_PATH = Path(__file__).parent.parent / "data" / "live_evidence_cache.json"
 
 
 class TrendPoint(BaseModel):

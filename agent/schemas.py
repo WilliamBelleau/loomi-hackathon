@@ -98,8 +98,8 @@ class EvidenceMode(str, Enum):
     """Controls which evidence source the orchestrator uses."""
 
     DEMO = "demo"          # default — mock fixture data, always fast
-    SNAPSHOT = "snapshot"  # reads data/live_evidence_snapshot.json
-    LIVE = "live"          # same as SNAPSHOT at Streamlit level (reads file)
+    LIVE = "live"          # live call to MCP
+    SNAPSHOT = "snapshot"  # Last Successful MCP Refresh
 
 
 class EvidenceSourceLabel(str, Enum):

@@ -225,25 +225,26 @@ st.html("""
 # ─── Mode Selection & Banner ────────────────────────────────────────────────────
 
 mode_options = {
-    EvidenceMode.DEMO.value: "Demo (Mock Fixture) — Default",
-    EvidenceMode.SNAPSHOT.value: "Snapshot (Sanitized File)",
-    EvidenceMode.LIVE.value: "Live MCP Evidence (Snapshot-backed)",
+    EvidenceMode.DEMO.value: "Demo Fixture",
+    EvidenceMode.LIVE.value: "Live Loomi MCP",
+    EvidenceMode.SNAPSHOT.value: "Last Successful MCP Refresh",
 }
 
 col_mode, col_empty = st.columns([1, 2])
 with col_mode:
     selected_mode_val = st.selectbox(
         "Evidence Mode",
-        options=[EvidenceMode.DEMO.value, EvidenceMode.SNAPSHOT.value, EvidenceMode.LIVE.value],
+        options=[EvidenceMode.DEMO.value, EvidenceMode.LIVE.value, EvidenceMode.SNAPSHOT.value],
         format_func=lambda x: mode_options[x],
         label_visibility="collapsed"
     )
 evidence_mode = EvidenceMode(selected_mode_val)
 
 import os
+import asyncio
 from pathlib import Path
 
-snapshot_path = Path("data/live_evidence_snapshot.json")
+snapshot_path = Path("data/live_evidence_cache.json")
 snapshot_exists = snapshot_path.exists()
 
 if evidence_mode == EvidenceMode.DEMO:
@@ -253,19 +254,19 @@ if evidence_mode == EvidenceMode.DEMO:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9888;&nbsp; <strong>MOCK MODE</strong> &mdash; All Bloomreach MCP adapter calls use local
+      &#9888;&nbsp; <strong>DEMO FIXTURE</strong> &mdash; All Bloomreach MCP adapter calls use local
       synthetic fixtures. Not connected to Bloomreach sandbox. No network calls.
       No production data. No PII.
     </div>
     """
-elif not snapshot_exists:
+elif evidence_mode == EvidenceMode.SNAPSHOT and not snapshot_exists:
     banner_html = """
     <div style="
         background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; border-left: 4px solid #F59E0B;
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9888;&nbsp; <strong>No MCP snapshot found. Falling back to Demo Mode.</strong>
+      &#9888;&nbsp; <strong>No MCP cache found. Falling back to Demo Mode.</strong>
     </div>
     """
 elif evidence_mode == EvidenceMode.SNAPSHOT:
@@ -275,7 +276,7 @@ elif evidence_mode == EvidenceMode.SNAPSHOT:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>SNAPSHOT MODE</strong> &mdash; MCP SNAPSHOT — captured from live Bloomreach Analytics MCP.
+      &#9432;&nbsp; <strong>LAST SUCCESSFUL MCP REFRESH</strong> &mdash; Using cached evidence captured from a previous live Bloomreach Analytics MCP run.
     </div>
     """
 else:
@@ -285,11 +286,29 @@ else:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>LIVE MCP MODE</strong> &mdash; Using sanitized evidence captured from live Bloomreach Analytics MCP. Streamlit reads the snapshot file; it does not manage OAuth.
+      &#9432;&nbsp; <strong>LIVE LOOMI MCP</strong> &mdash; This session will execute real sequential EQL queries against the Bloomreach sandbox.
     </div>
     """
 
 st.html(banner_html)
+
+if evidence_mode == EvidenceMode.LIVE:
+    if st.button("Refresh Live Loomi MCP Evidence", key="refresh_mcp_btn"):
+        from tools.live_mcp_client import refresh_live_mcp_evidence
+        
+        progress_text = st.empty()
+        def _update_progress(msg: str):
+            progress_text.text(f"⏳ {msg}")
+            
+        with st.spinner("Connecting to live MCP..."):
+            try:
+                bundle = asyncio.run(refresh_live_mcp_evidence(_update_progress))
+                st.session_state["live_evidence_cache"] = bundle
+                progress_text.success("✅ Live MCP refresh complete.")
+            except Exception as e:
+                progress_text.error(f"❌ MCP Refresh Failed: {e}")
+
+
 
 # ─── Prompt input + Run Triage ────────────────────────────────────────────────
 
@@ -318,7 +337,10 @@ with col_btn:
 
 if run_clicked:
     with st.spinner("Running triage pipeline…"):
-        orchestrator = Orchestrator(evidence_mode=evidence_mode)
+        orchestrator = Orchestrator(
+            evidence_mode=evidence_mode,
+            live_bundle=st.session_state.get("live_evidence_cache") if evidence_mode == EvidenceMode.LIVE else None
+        )
         try:
             brief = orchestrator.run(user_prompt)
         except ValueError as exc:

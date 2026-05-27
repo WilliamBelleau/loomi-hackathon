@@ -23,7 +23,7 @@ from agent.schemas import EvidenceBundle, ToolTraceEntry, TraceStatus, TriageBri
 from agent.scoring import score_evidence
 from tools.analytics_mcp import AnalyticsMCPClient
 from tools.conversations_mcp import ConversationsMCPClient
-from tools.live_evidence_adapter import LiveEvidenceAdapter
+from tools.live_evidence_adapter import LiveEvidenceAdapter, LiveEvidenceBundle
 from tools.marketing_mcp_optional import MarketingMCPClientOptional
 from tools.synthetic_ops import SyntheticOpsClient
 
@@ -45,6 +45,7 @@ class Orchestrator:
         reasoning_engine: ReasoningEngine | None = None,
         include_marketing: bool = True,
         evidence_mode: EvidenceMode = EvidenceMode.DEMO,
+        live_bundle: LiveEvidenceBundle | None = None,
     ) -> None:
         self.analytics_client = analytics_client or AnalyticsMCPClient()
         self.conversations_client = conversations_client or ConversationsMCPClient()
@@ -53,6 +54,7 @@ class Orchestrator:
         self.reasoning_engine: ReasoningEngine = reasoning_engine or DeterministicReasoningEngine()
         self.include_marketing = include_marketing
         self.evidence_mode = evidence_mode
+        self.live_bundle = live_bundle
 
     def run(self, user_prompt: str) -> TriageBrief:
         """
@@ -71,22 +73,38 @@ class Orchestrator:
 
         # Step 1 — Analytics MCP adapter
         analytics_signals = None
-        if self.evidence_mode in (EvidenceMode.SNAPSHOT, EvidenceMode.LIVE):
-            bundle_snapshot = LiveEvidenceAdapter.load()
-            if bundle_snapshot:
-                label = (EvidenceSourceLabel.LIVE_BLOOMREACH_MCP 
-                         if self.evidence_mode == EvidenceMode.LIVE 
-                         else EvidenceSourceLabel.MCP_SNAPSHOT)
-                analytics_signals = bundle_snapshot.to_analytics_signals(label=label)
-                status = (TraceStatus.CALLED_LIVE 
-                          if self.evidence_mode == EvidenceMode.LIVE 
-                          else TraceStatus.CALLED_SNAPSHOT)
+        if self.evidence_mode == EvidenceMode.LIVE:
+            if self.live_bundle:
+                analytics_signals = self.live_bundle.to_analytics_signals(label=EvidenceSourceLabel.LIVE_BLOOMREACH_MCP)
                 tool_trace.append(
                     ToolTraceEntry(
-                        adapter=f"Analytics MCP Adapter ({label.value})",
-                        status=status,
+                        adapter=f"Analytics MCP Adapter ({EvidenceSourceLabel.LIVE_BLOOMREACH_MCP.value})",
+                        status=TraceStatus.CALLED_LIVE,
                         signal_count=len(analytics_signals),
-                        note=f"Loaded from snapshot (age: {bundle_snapshot.snapshot_age_minutes:.1f} min)",
+                        note=f"Loaded from active Streamlit session (age: {self.live_bundle.snapshot_age_minutes:.1f} min)",
+                    )
+                )
+            else:
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter="Analytics MCP Adapter (Live Session)",
+                        status=TraceStatus.SKIPPED,
+                        signal_count=0,
+                        note="No live bundle provided. Falling back to cached snapshot.",
+                    )
+                )
+                self.evidence_mode = EvidenceMode.SNAPSHOT  # degrade to snapshot
+
+        if self.evidence_mode == EvidenceMode.SNAPSHOT:
+            bundle_snapshot = LiveEvidenceAdapter.load()
+            if bundle_snapshot:
+                analytics_signals = bundle_snapshot.to_analytics_signals(label=EvidenceSourceLabel.MCP_SNAPSHOT)
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter=f"Analytics MCP Adapter ({EvidenceSourceLabel.MCP_SNAPSHOT.value})",
+                        status=TraceStatus.CALLED_SNAPSHOT,
+                        signal_count=len(analytics_signals),
+                        note=f"Loaded from cache (age: {bundle_snapshot.snapshot_age_minutes:.1f} min)",
                     )
                 )
 
