@@ -9,6 +9,30 @@ and what must be replaced once Bloomreach shares sandbox details.
 
 ---
 
+## Transport and Authentication
+
+**Transport:** Bloomreach Loomi Connect MCP uses **Streamable HTTP** transport
+(not stdio MCP). This is a remote MCP server accessed over HTTPS.
+
+**Authentication:** The official integration path uses **browser-based Bloomreach
+authentication** through supported MCP clients (e.g., Claude Desktop, Cursor).
+This means a human authenticates in a browser session; the MCP client then holds
+the session context.
+
+**Programmatic access:** Token-based programmatic access (for standalone scripts
+or server-side Python) is **TBD and pending confirmation** from Bloomreach.
+Do not assume token auth works without testing. The discovery script
+(`scripts/discover_mcp_tools.py`) is designed to handle this uncertainty and
+will exit gracefully if programmatic auth is not available.
+
+**Read-only:** All Loomi Connect MCP tools are read-only for this hackathon.
+No write operations, no customer-facing actions, no ticket creation via MCP.
+
+**See also:** `docs/mcp-integration-plan.md` for the full integration audit and
+phased implementation plan.
+
+---
+
 ## Analytics MCP (Planned)
 
 **File:** `tools/analytics_mcp.py` · Class: `AnalyticsMCPClient`
@@ -33,26 +57,39 @@ and what must be replaced once Bloomreach shares sandbox details.
 
 ---
 
-## Conversations MCP (Planned)
+## Conversations MCP (Pending Schema Validation)
 
 **File:** `tools/conversations_mcp.py` · Class: `ConversationsMCPClient`
 
-**Planned role:**
-- Surface rising customer friction intents from Loomi AI chat interactions
-- Identify intent trends by volume spike, channel, and region
-- Provide representative customer phrases for each intent cluster
-- Correlate intent spikes with analytics anomalies (e.g. payment_failed intent rising = checkout drop is customer-visible)
-- Surface emerging intents before they become high-volume (early warning)
+**Planned role (pending confirmation):**
+- Surface customer session signals and checkout friction themes from Loomi AI chat interactions
+- Provide context on what customers are struggling with during shopping and checkout flows
+- Correlate session-level friction themes with analytics anomalies (e.g., payment issues
+  surfacing in chat confirm that the checkout drop is customer-visible)
+- Intent taxonomy, aggregation method, and spike-detection capability are **not yet confirmed**
+
+> **Schema validation status: PENDING.**
+> Bloomreach has indicated Conversations MCP is product/shopping-oriented.
+> Aggregated intent trend data (e.g., spike percentages across a time window) may not be
+> directly available. Live Conversations MCP mapping is blocked on discovery script results.
+> The safe description is: *customer session signals — checkout friction themes surfaced
+> from recent Loomi chat interactions.*
 
 **Current mock:**
 - `get_intent_signals()` reads `data/conversation_intents.json`
-- Returns `List[ConversationSignal]` with pre-seeded payment_failed +42%, cannot_complete_order +38%
+- Returns `List[ConversationSignal]` with pre-seeded payment_failed and cannot_complete_order
+  friction themes (described as session signals, not confirmed aggregated trend spikes)
 
-**What must be replaced (Phase 2):**
-- Obtain Bloomreach Conversations MCP endpoint and authentication method
-- Obtain exact tool name and request/response schema
-- Replace `get_intent_signals()` method body with authenticated MCP tool call
-- Method signature and return type (`List[ConversationSignal]`) do not change
+**What must be confirmed before Phase 2 replacement:**
+- Whether Conversations MCP exposes aggregated intent trend data or per-session signals
+- Exact tool name and request/response schema
+- Whether `ConversationSignal.spike_pct` can be populated from real data or must be reframed
+- Method signature and return type (`List[ConversationSignal]`) may need adjustment
+  depending on real schema
+
+**Fallback if schema mismatch confirmed:**
+- Tool trace note updated to: "Schema validation pending — using mock fallback"
+- Conversations remains in the demo story as an honest labeled mock
 
 ---
 
@@ -103,12 +140,12 @@ and what must be replaced once Bloomreach shares sandbox details.
 
 ## Summary Table
 
-| Adapter | MCP Provider | Status | Phase to Replace |
-|---|---|---|---|
-| Analytics MCP | Bloomreach Loomi Connect Analytics | 🟡 Mocked | Phase 2 |
-| Conversations MCP | Bloomreach Loomi Connect Conversations | 🟡 Mocked | Phase 2 |
-| Marketing MCP (Optional) | Bloomreach Loomi Connect Marketing | 🟡 Mocked | Phase 2 |
-| Synthetic Ops | Internal / Observability Platform | 🟡 Mocked | Phase 3 |
+| Adapter | MCP Provider | Status | Demo Role | Phase to Replace |
+|---|---|---|---|---|
+| Analytics MCP | Bloomreach Loomi Connect Analytics | 🟡 Mocked | Core demo | Phase 2 |
+| Conversations MCP | Bloomreach Loomi Connect Conversations | 🟡 Mocked — schema pending | Core mock, optional live | Phase 2 (blocked on schema) |
+| Marketing MCP (Optional) | Bloomreach Loomi Connect Marketing | 🟡 Mocked | Stretch | Phase 2 |
+| Synthetic Ops | Internal / Observability Platform | 🟡 Mocked (always) | Core mock | Phase 3 |
 
 ---
 
