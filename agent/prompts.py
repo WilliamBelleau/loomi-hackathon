@@ -60,8 +60,9 @@ def _format_evidence_list(bundle: EvidenceBundle) -> list[str]:
 
     for sig in bundle.analytics_signals:
         direction = "↓" if sig.delta_pct < 0 else "↑"
+        label = getattr(sig, "source_label", None) or "MOCK FIXTURE"
         items.append(
-            f"[Analytics] {sig.metric_name}: {direction}{abs(sig.delta_pct):.1f}% vs baseline "
+            f"[Analytics] [{label}] {sig.metric_name}: {direction}{abs(sig.delta_pct):.1f}% vs baseline "
             f"({sig.channel}, {sig.region})"
         )
 
@@ -71,14 +72,16 @@ def _format_evidence_list(bundle: EvidenceBundle) -> list[str]:
             if sig.representative_phrases
             else ""
         )
+        label = "MOCK FIXTURE"
         items.append(
-            f"[Conversations] Intent '{sig.intent_name}' ↑{sig.spike_pct:.1f}%{phrases}"
+            f"[Conversations] [{label}] Intent '{sig.intent_name}' ↑{sig.spike_pct:.1f}%{phrases}"
         )
 
     for sig in bundle.ops_signals:
         breach = " ⚠ threshold breached" if sig.threshold_breached else ""
+        label = "SYNTHETIC COMMERCE OPS"
         items.append(
-            f"[Ops] {sig.system} — {sig.error_type}: "
+            f"[Ops] [{label}] {sig.system} — {sig.error_type}: "
             f"{sig.error_rate*100:.1f}% error rate (threshold {sig.threshold*100:.1f}%){breach}"
         )
 
@@ -88,7 +91,8 @@ def _format_evidence_list(bundle: EvidenceBundle) -> list[str]:
             if bundle.marketing_context.traffic_spike_detected
             else "No campaign spike detected — demand surge unlikely to explain anomaly."
         )
-        items.append(f"[Marketing] {spike}")
+        label = "MOCK FIXTURE"
+        items.append(f"[Marketing] [{label}] {spike}")
 
     return items
 

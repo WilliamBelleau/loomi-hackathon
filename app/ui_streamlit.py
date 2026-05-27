@@ -12,6 +12,7 @@ Brand design: Simons-inspired editorial retail aesthetic.
 import streamlit as st
 
 from agent.orchestrator import Orchestrator
+from agent.schemas import EvidenceMode
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 
@@ -221,26 +222,60 @@ st.html("""
 </div>
 """)
 
-# ─── Mock-mode banner ─────────────────────────────────────────────────────────
+# ─── Mode Selection & Banner ────────────────────────────────────────────────────
 
-st.html("""
-<div style="
-    background: #FEF3C7;
-    color: #92400E;
-    border: 1px solid #FDE68A;
-    border-left: 4px solid #F59E0B;
-    border-radius: 2px;
-    padding: 0.65rem 1rem;
-    font-size: 0.82rem;
-    font-weight: 500;
-    margin-bottom: 1.1rem;
-    font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
-">
-  &#9888;&nbsp; <strong>MOCK MODE</strong> &mdash; All Bloomreach MCP adapter calls use local
-  synthetic fixtures. Not connected to Bloomreach sandbox. No network calls.
-  No production data. No PII.
-</div>
-""")
+mode_options = {
+    EvidenceMode.DEMO.value: "Demo (Mock Fixture) — Default",
+    EvidenceMode.SNAPSHOT.value: "Snapshot (Sanitized File)",
+    EvidenceMode.LIVE.value: "Live MCP (Streamable HTTP)",
+}
+
+col_mode, col_empty = st.columns([1, 2])
+with col_mode:
+    selected_mode_val = st.selectbox(
+        "Evidence Mode",
+        options=[EvidenceMode.DEMO.value, EvidenceMode.SNAPSHOT.value, EvidenceMode.LIVE.value],
+        format_func=lambda x: mode_options[x],
+        label_visibility="collapsed"
+    )
+evidence_mode = EvidenceMode(selected_mode_val)
+
+if evidence_mode == EvidenceMode.DEMO:
+    banner_html = """
+    <div style="
+        background: #FEF3C7; color: #92400E; border: 1px solid #FDE68A; border-left: 4px solid #F59E0B;
+        border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
+        margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    ">
+      &#9888;&nbsp; <strong>MOCK MODE</strong> &mdash; All Bloomreach MCP adapter calls use local
+      synthetic fixtures. Not connected to Bloomreach sandbox. No network calls.
+      No production data. No PII.
+    </div>
+    """
+elif evidence_mode == EvidenceMode.SNAPSHOT:
+    banner_html = """
+    <div style="
+        background: #E0F2FE; color: #075985; border: 1px solid #BAE6FD; border-left: 4px solid #0EA5E9;
+        border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
+        margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    ">
+      &#9432;&nbsp; <strong>SNAPSHOT MODE</strong> &mdash; Reading sanitized MCP data from
+      data/live_evidence_snapshot.json. No live network calls.
+    </div>
+    """
+else:
+    banner_html = """
+    <div style="
+        background: #DCFCE7; color: #166534; border: 1px solid #BBF7D0; border-left: 4px solid #22C55E;
+        border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
+        margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+    ">
+      &#9432;&nbsp; <strong>LIVE MCP MODE</strong> &mdash; Simulating live connection to Bloomreach MCP.
+      (Currently reads from snapshot file in this phase).
+    </div>
+    """
+
+st.html(banner_html)
 
 # ─── Prompt input + Run Triage ────────────────────────────────────────────────
 
@@ -269,7 +304,7 @@ with col_btn:
 
 if run_clicked:
     with st.spinner("Running triage pipeline…"):
-        orchestrator = Orchestrator()
+        orchestrator = Orchestrator(evidence_mode=evidence_mode)
         try:
             brief = orchestrator.run(user_prompt)
         except ValueError as exc:
@@ -466,6 +501,16 @@ if run_clicked:
             accent, icon = "#10b981", "📣"
         else:
             accent, icon = "#475569", "·"
+
+        import re
+        match = re.match(r"^(\[[^\]]+\])\s*(?:\[([^\]]+)\])?\s*(.*)", item)
+        if match:
+            domain, badge, text = match.groups()
+            badge_html = f'<span style="font-size:0.55rem; font-weight:700; background:#334155; color:#94a3b8; padding:0.15rem 0.35rem; border-radius:2px; margin-right:0.4rem;">{badge}</span>' if badge else ""
+            formatted_item = f"{icon}&nbsp; {badge_html}{text}"
+        else:
+            formatted_item = f"{icon}&nbsp; {item}"
+
         st.html(f"""
         <div style="
             background:#1e293b; border:1px solid #334155;
@@ -473,7 +518,7 @@ if run_clicked:
             border-radius:3px; padding:0.8rem 1rem; margin-bottom:0.4rem;
             font-size:0.84rem; color:#e2e8f0; line-height:1.45;
             font-family:'Inter','Helvetica Neue',Arial,sans-serif;
-        ">{icon}&nbsp; {item}</div>
+        ">{formatted_item}</div>
         """)
 
     # ── Suspected root causes ─────────────────────────────────────────────────
