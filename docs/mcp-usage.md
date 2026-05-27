@@ -3,162 +3,202 @@
 ## Status: Mock-First
 
 All Bloomreach Loomi Connect MCP calls are currently **mocked** using local
-synthetic fixture data. No real Bloomreach API credentials, endpoints, tool names,
-or schemas are used. This document describes the planned role of each MCP
-and what must be replaced once Bloomreach shares sandbox details.
+synthetic fixture data. No real Bloomreach credentials, endpoint values, tool names,
+or schemas are committed to this repository. This document describes the confirmed and
+planned role of each MCP adapter and what must be completed before live replacement.
 
 ---
 
 ## Transport and Authentication
 
-**Transport:** Bloomreach Loomi Connect MCP uses **Streamable HTTP** transport
-(not stdio MCP). This is a remote MCP server accessed over HTTPS.
+From the official Bloomreach Loomi Connect documentation:
 
-**Authentication:** The official integration path uses **browser-based Bloomreach
-authentication** through supported MCP clients (e.g., Claude Desktop, Cursor).
-This means a human authenticates in a browser session; the MCP client then holds
-the session context.
+**Transport:** Streamable HTTP — a remote MCP server accessed over HTTPS.
+This is not stdio MCP. The server is hosted by Bloomreach; clients connect over the network.
 
-**Programmatic access:** Token-based programmatic access (for standalone scripts
-or server-side Python) is **TBD and pending confirmation** from Bloomreach.
-Do not assume token auth works without testing. The discovery script
-(`scripts/discover_mcp_tools.py`) is designed to handle this uncertainty and
-will exit gracefully if programmatic auth is not available.
+**Normal setup:** Configure the MCP server URL in a supported MCP-compatible AI application:
+- Antigravity (recommended for this project)
+- Claude Code
+- Cursor
+- VS Code with MCP extension
 
-**Read-only:** All Loomi Connect MCP tools are read-only for this hackathon.
-No write operations, no customer-facing actions, no ticket creation via MCP.
+No API keys, tokens, or custom headers are required for normal MCP use.
 
-**See also:** `docs/mcp-integration-plan.md` for the full integration audit and
-phased implementation plan.
+**Authentication:** Browser-based Bloomreach SSO / OIDC.
+The first tool call triggers a browser login. After authentication, sessions persist
+for **up to 30 days** — subsequent calls in the same session do not re-prompt.
+
+**Programmatic / script-based access:** Not a confirmed Bloomreach-supported pattern.
+`scripts/discover_mcp_tools.py` includes an experimental token mode, but this is
+not the recommended path. Use an MCP-compatible IDE client for discovery.
+
+**Data access:**
+- Tools are **read-only** — no write operations, no customer-facing actions, no ticket creation
+- Tools expose live Bloomreach workspace data according to your IAM permissions
+- **PII may be masked** depending on your permission level
+- **Customer event history is limited to the last 365 days**
+
+**Performance:**
+- Ad-hoc analytics queries can take **10–30 seconds** per query
+- Rate limits apply; caching applies to repeated identical queries
+- For demo reliability, mock adapters are faster and more predictable than live queries
+
+**See also:** `docs/mcp-integration-plan.md` for the full integration audit,
+phased plan, and IDE-mediated discovery guidance.
 
 ---
 
-## Analytics MCP (Planned)
+## Analytics MCP (Core Demo Candidate)
 
 **File:** `tools/analytics_mcp.py` · Class: `AnalyticsMCPClient`
 
-**Planned role:**
-- Detect conversion rate anomalies across funnel steps (browse, add-to-cart, checkout-start, checkout-complete)
-- Compare current period metrics against rolling baselines (7-day, 28-day)
-- Segment anomalies by channel (Mobile Web, Desktop, App) and region (province, country)
-- Surface trend direction and magnitude for triage prioritization
-- Identify which funnel steps are affected vs stable (e.g. add-to-cart stable = not demand-driven)
+**Confirmed real MCP capabilities:**
+- Project and workspace overview — understand available data structure
+- Dashboard and saved funnel inspection — list pre-built analyses
+- Ad-hoc analytics queries (EQL-style) — event counts, conversion rates, segment comparisons
+- Event schema and property mapping — identify which events and properties are tracked
+- Funnel / drop-off analysis — compare steps like add_to_cart vs checkout_start vs purchase
+- Channel and region segmentation — where event properties support device type / region filters
+
+**Integration risk:** 🟡 MEDIUM
+- Sandbox event property names for channel (mobile/desktop) and region (province) are unconfirmed
+- Ad-hoc query latency is 10–30 seconds — mock is faster for demo timing
+- Feasibility of the "Quebec / Mobile Web checkout drop" scenario depends on sandbox data
 
 **Current mock:**
 - `get_anomalies()` reads `data/analytics_anomalies.json`
 - Returns `List[AnalyticsSignal]` with pre-seeded Quebec / Mobile Web checkout drop scenario
 
-**What must be replaced (Phase 2):**
-- Obtain Bloomreach Analytics MCP endpoint and authentication method
-- Obtain exact tool name (e.g. `loomi_analytics_get_anomalies` — placeholder)
-- Obtain request/response schema
-- Replace `get_anomalies()` method body with authenticated MCP tool call
-- Method signature and return type (`List[AnalyticsSignal]`) do not change
+**What must be confirmed before Phase D.3 replacement:**
+- Sandbox project_id (from Bloomreach sandbox portal — not committed)
+- Analytics MCP tool names as confirmed via IDE discovery
+- Event property names for device/channel and region segmentation
+- Whether sandbox data includes checkout funnel events with sufficient volume
+- IAM permissions: what data is visible in the sandbox vs masked
+
+**Swap point:** `AnalyticsMCPClient.get_anomalies()` method body only.
+Method signature and return type (`List[AnalyticsSignal]`) do not change.
 
 ---
 
-## Conversations MCP (Pending Schema Validation)
-
-**File:** `tools/conversations_mcp.py` · Class: `ConversationsMCPClient`
-
-**Planned role (pending confirmation):**
-- Surface customer session signals and checkout friction themes from Loomi AI chat interactions
-- Provide context on what customers are struggling with during shopping and checkout flows
-- Correlate session-level friction themes with analytics anomalies (e.g., payment issues
-  surfacing in chat confirm that the checkout drop is customer-visible)
-- Intent taxonomy, aggregation method, and spike-detection capability are **not yet confirmed**
-
-> **Schema validation status: PENDING.**
-> Bloomreach has indicated Conversations MCP is product/shopping-oriented.
-> Aggregated intent trend data (e.g., spike percentages across a time window) may not be
-> directly available. Live Conversations MCP mapping is blocked on discovery script results.
-> The safe description is: *customer session signals — checkout friction themes surfaced
-> from recent Loomi chat interactions.*
-
-**Current mock:**
-- `get_intent_signals()` reads `data/conversation_intents.json`
-- Returns `List[ConversationSignal]` with pre-seeded payment_failed and cannot_complete_order
-  friction themes (described as session signals, not confirmed aggregated trend spikes)
-
-**What must be confirmed before Phase 2 replacement:**
-- Whether Conversations MCP exposes aggregated intent trend data or per-session signals
-- Exact tool name and request/response schema
-- Whether `ConversationSignal.spike_pct` can be populated from real data or must be reframed
-- Method signature and return type (`List[ConversationSignal]`) may need adjustment
-  depending on real schema
-
-**Fallback if schema mismatch confirmed:**
-- Tool trace note updated to: "Schema validation pending — using mock fallback"
-- Conversations remains in the demo story as an honest labeled mock
-
----
-
-## Marketing MCP (Optional, Planned)
+## Marketing MCP (Supporting Context — Optional)
 
 **File:** `tools/marketing_mcp_optional.py` · Class: `MarketingMCPClientOptional`
 
-**Planned role:**
-- Provide campaign traffic context to avoid false root-cause assumptions
-- Identify whether an active campaign could independently explain a conversion anomaly
-  (e.g. flash sale driving checkout pressure ≠ payment failure)
-- Used to *narrow* the root-cause hypothesis, not to dismiss customer impact
-- Signal interpretation:
-  - `traffic_spike_detected = False` → demand surge is not a plausible alternative explanation
-  - `traffic_spike_detected = True` → weakens confidence in payment/ops root-cause hypothesis only
+**Confirmed real MCP capabilities:**
+- List active scenarios and their configuration
+- List campaigns and campaign calendar entries
+- Inspect audience and segment setup
+- Check whether any active promotion or campaign could independently explain a conversion change
+- Used as a **negative check only**: no active campaign = demand surge is not a plausible explanation
+- This adapter is a context source, not an action surface
+
+**Integration risk:** 🟡 MEDIUM
+- Already optional in the architecture — scoring runs correctly without it
+- Sandbox campaign/scenario data may be sparse or generic
 
 **Current mock:**
 - `get_context()` returns a static `MarketingContext` stub with `traffic_spike_detected=False`
-- Default fixture reflects the primary demo scenario: no campaign activity explains the anomaly
+- Default fixture: no campaign activity explains the anomaly (supports the payment hypothesis)
 
-**What must be replaced (Phase 2):**
-- Obtain Bloomreach Marketing MCP endpoint and authentication method
-- Obtain exact tool name and request/response schema
-- Replace `get_context()` method body with authenticated MCP tool call
-- This adapter is optional — the orchestrator runs without it
+**What must be confirmed before Phase D.3 replacement:**
+- Marketing MCP tool names as confirmed via IDE discovery
+- Whether sandbox has any active scenarios or campaigns that could serve as test context
+- Whether traffic attribution data is available for the sandbox project
+
+**Swap point:** `MarketingMCPClientOptional.get_context()` method body only.
+Adapter is optional — the orchestrator runs correctly without it.
 
 ---
 
-## Synthetic Ops Adapter (Mock — no real system planned yet)
+## Conversations MCP (Optional Stretch — Product/Shopping Catalog Only)
+
+**File:** `tools/conversations_mcp.py` · Class: `ConversationsMCPClient`
+
+**Confirmed real MCP role:**
+Conversations MCP is a **product/shopping catalog prototype** (Pacific Apparel dataset).
+
+**Confirmed tools:**
+- `search_products`
+- `search_productCollections`
+- `get_product`
+- `seeker_products`
+
+**Integration assessment:**
+Conversations MCP is confirmed as a product/shopping catalog prototype and does not map
+to our current aggregated `payment_failed` intent trend mock. It is a non-fit for the
+core demo scenario of aggregated checkout-friction trend analytics.
+
+The mock fixture (`data/conversation_intents.json`) accurately represents the *type* of
+signal that *should* come from a customer-voice analytics surface — the architecture is
+right; the specific live source for this signal type is a future integration.
+
+**Potential value (stretch only):**
+- Product discovery friction examples at the catalog level
+- Shopper-intent signals for a product-focused scenario
+- Could demonstrate a Simons product-catalog use case if time allows
+
+**Current mock:**
+- `get_intent_signals()` reads `data/conversation_intents.json`
+- Returns `List[ConversationSignal]` with pre-seeded checkout friction themes
+- Mock is clearly labeled; the human review gate ensures no uncorroborated action
+
+**Demo role:** ⚪ **Optional stretch** — Explore only after Analytics and Marketing
+discovery is complete and time allows. **Mock is the correct default and demo path.**
+
+**Judge-facing framing:**
+> "Conversations MCP is a product discovery surface. For this unified commerce triage
+> scenario, the core live MCP path is Analytics + Marketing context, while customer voice /
+> checkout-friction signals remain synthetic fixtures unless a suitable live source is confirmed."
+
+---
+
+## Synthetic Ops Adapter (Always Mock — Not a Bloomreach MCP)
 
 **File:** `tools/synthetic_ops.py` · Class: `SyntheticOpsClient`
 
 **Role:**
 - Provide payment gateway, OMS, and fulfillment error signals
-- Correlate operational errors with analytics and conversation signals
+- Correlate operational errors with analytics signals
 - Identify threshold breaches that indicate systemic issues
+
+**This is not a Bloomreach MCP.** It represents internal Simons payment gateway
+and OMS data. In a production integration, it would connect to an internal
+observability platform (Datadog, Splunk, or equivalent).
 
 **Current mock:**
 - `get_ops_signals()` reads `data/commerce_ops_signals.json`
 - Returns `List[OpsSignal]` with pre-seeded authorization failure scenario
 
-**What must be replaced (Phase 3):**
-- Connect to internal Simons payment gateway observability or OMS API
-- Or integrate with a unified observability platform (Datadog, Splunk, etc.)
-- This is NOT a Bloomreach MCP — it is an internal systems integration
+**Phase 3 path:** Internal ops observability integration — out of scope for this hackathon.
 
 ---
 
 ## Summary Table
 
-| Adapter | MCP Provider | Status | Demo Role | Phase to Replace |
+| Adapter | MCP Provider | Status | Demo Role | Phase |
 |---|---|---|---|---|
-| Analytics MCP | Bloomreach Loomi Connect Analytics | 🟡 Mocked | Core demo | Phase 2 |
-| Conversations MCP | Bloomreach Loomi Connect Conversations | 🟡 Mocked — schema pending | Core mock, optional live | Phase 2 (blocked on schema) |
-| Marketing MCP (Optional) | Bloomreach Loomi Connect Marketing | 🟡 Mocked | Stretch | Phase 2 |
+| Analytics MCP | Bloomreach Loomi Connect Analytics | 🟡 Mocked | Core demo candidate | D.3 (blocked on D.2 discovery) |
+| Marketing MCP | Bloomreach Loomi Connect Marketing | 🟡 Mocked | Supporting context (optional) | D.3 (blocked on D.2 discovery) |
+| Conversations MCP | Bloomreach Loomi Connect Conversations | 🟡 Mocked — confirmed non-fit for core scenario | Optional stretch only | TBD |
 | Synthetic Ops | Internal / Observability Platform | 🟡 Mocked (always) | Core mock | Phase 3 |
 
 ---
 
-## What We Are Waiting For
+## What We Still Need to Confirm
 
-To replace any mock adapter with a real call, we need from Bloomreach:
+Authentication is now confirmed (browser SSO — no API key or token required).
+What remains before Phase D.3 live adapter work can begin:
 
-1. **Sandbox environment URL / endpoint**
-2. **Authentication method** (API key, OAuth2, MCP session token)
-3. **Tool names** for each MCP capability used
-4. **Request schema** (what parameters to pass)
-5. **Response schema** (what fields to expect, how to page results)
-6. **Rate limits and quotas** for the sandbox environment
+1. **Sandbox project URL** — from Bloomreach sandbox portal (never committed to repo)
+2. **Analytics MCP tool names** — confirmed via IDE discovery in Antigravity
+3. **Event property names** — device/channel and region fields for EQL query segmentation
+4. **Sandbox data coverage** — whether the sandbox contains checkout funnel data with
+   sufficient volume for the "Quebec / Mobile Web" scenario
+5. **IAM permissions** — what data is visible vs PII-masked in the sandbox
+6. **Marketing MCP tool names** — confirmed via IDE discovery
 
-Until these details are available, all adapters remain mocked and the demo
-runs reliably from local fixture data with no external dependencies.
+Until these details are confirmed through IDE-mediated discovery, all adapters remain
+mocked and the demo runs reliably from local fixture data with no external dependencies.
+
+See `docs/antigravity-mcp-test-plan.md` for structured discovery prompts.
