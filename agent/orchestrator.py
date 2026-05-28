@@ -19,10 +19,11 @@ from agent.prompts import (
     ReasoningEngine,
     classify_prompt,
 )
-from agent.schemas import EvidenceBundle, ToolTraceEntry, TraceStatus, TriageBrief
+from agent.schemas import EvidenceBundle, ToolTraceEntry, TraceStatus, TriageBrief, EvidenceMode, EvidenceSourceLabel
 from agent.scoring import score_evidence
 from tools.analytics_mcp import AnalyticsMCPClient
 from tools.conversations_mcp import ConversationsMCPClient
+from tools.live_evidence_adapter import LiveEvidenceAdapter, LiveEvidenceBundle
 from tools.marketing_mcp_optional import MarketingMCPClientOptional
 from tools.synthetic_ops import SyntheticOpsClient
 
@@ -43,6 +44,8 @@ class Orchestrator:
         marketing_client: MarketingMCPClientOptional | None = None,
         reasoning_engine: ReasoningEngine | None = None,
         include_marketing: bool = True,
+        evidence_mode: EvidenceMode = EvidenceMode.DEMO,
+        live_bundle: LiveEvidenceBundle | None = None,
     ) -> None:
         self.analytics_client = analytics_client or AnalyticsMCPClient()
         self.conversations_client = conversations_client or ConversationsMCPClient()
@@ -50,6 +53,8 @@ class Orchestrator:
         self.marketing_client = marketing_client or MarketingMCPClientOptional()
         self.reasoning_engine: ReasoningEngine = reasoning_engine or DeterministicReasoningEngine()
         self.include_marketing = include_marketing
+        self.evidence_mode = evidence_mode
+        self.live_bundle = live_bundle
 
     def run(self, user_prompt: str) -> TriageBrief:
         """
@@ -67,15 +72,62 @@ class Orchestrator:
         tool_trace: list[ToolTraceEntry] = []
 
         # Step 1 — Analytics MCP adapter
-        analytics_signals = self.analytics_client.get_anomalies()
-        tool_trace.append(
-            ToolTraceEntry(
-                adapter="Analytics MCP Adapter",
-                status=TraceStatus.CALLED_MOCK,
-                signal_count=len(analytics_signals),
-                note="Loaded from data/analytics_anomalies.json (mock fixture)",
+        analytics_signals = None
+        if self.evidence_mode == EvidenceMode.LIVE:
+            if self.live_bundle:
+                analytics_signals = self.live_bundle.to_analytics_signals(label=EvidenceSourceLabel.LIVE_BLOOMREACH_MCP)
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter=f"Analytics MCP Adapter ({EvidenceSourceLabel.LIVE_BLOOMREACH_MCP.value})",
+                        status=TraceStatus.CALLED_LIVE,
+                        signal_count=len(analytics_signals),
+                        note=f"Loaded from active Streamlit session (age: {self.live_bundle.snapshot_age_minutes:.1f} min)",
+                    )
+                )
+            else:
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter="Analytics MCP Adapter (Live Session)",
+                        status=TraceStatus.SKIPPED,
+                        signal_count=0,
+                        note="No live bundle provided. Falling back to cached snapshot.",
+                    )
+                )
+                self.evidence_mode = EvidenceMode.SNAPSHOT  # degrade to snapshot
+
+        if self.evidence_mode == EvidenceMode.SNAPSHOT:
+            bundle_snapshot = LiveEvidenceAdapter.load()
+            if bundle_snapshot:
+                analytics_signals = bundle_snapshot.to_analytics_signals(label=EvidenceSourceLabel.MCP_SNAPSHOT)
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter=f"Analytics MCP Adapter ({EvidenceSourceLabel.MCP_SNAPSHOT.value})",
+                        status=TraceStatus.CALLED_SNAPSHOT,
+                        signal_count=len(analytics_signals),
+                        note=f"Loaded from cache (age: {bundle_snapshot.snapshot_age_minutes:.1f} min)",
+                    )
+                )
+
+        if analytics_signals is None:
+            if self.evidence_mode != EvidenceMode.DEMO:
+                tool_trace.append(
+                    ToolTraceEntry(
+                        adapter="Analytics MCP Adapter (Fallback)",
+                        status=TraceStatus.SKIPPED,
+                        signal_count=0,
+                        note=f"Snapshot for {self.evidence_mode.value} mode unavailable. Falling back to DEMO.",
+                    )
+                )
+            
+            analytics_signals = self.analytics_client.get_anomalies()
+            tool_trace.append(
+                ToolTraceEntry(
+                    adapter="Analytics MCP Adapter",
+                    status=TraceStatus.CALLED_MOCK,
+                    signal_count=len(analytics_signals),
+                    note="Loaded from data/analytics_anomalies.json (mock fixture)",
+                )
             )
-        )
 
         # Step 2 — Conversations MCP adapter
         conversation_signals = self.conversations_client.get_intent_signals()
