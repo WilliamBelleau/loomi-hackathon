@@ -24,7 +24,7 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
     Saves the output to data/live_evidence_cache.json and returns a LiveEvidenceBundle.
     """
     try:
-        from mcp.client.sse import sse_client
+        from mcp.client.stdio import stdio_client, StdioServerParameters
         from mcp.client.session import ClientSession
     except ImportError:
         raise RuntimeError("The 'mcp' package is not installed. Please install requirements-mcp.txt.")
@@ -32,9 +32,15 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
     mcp_url = os.environ.get("LOOMI_MCP_ANALYTICS_MARKETING_URL")
     if not mcp_url:
         raise ValueError("LOOMI_MCP_ANALYTICS_MARKETING_URL environment variable is not set.")
+    if mcp_url.endswith("/"):
+        raise ValueError("LOOMI_MCP_ANALYTICS_MARKETING_URL must not have a trailing slash.")
+
+    project_id = os.environ.get("LOOMI_MCP_PROJECT_ID")
+    if not project_id:
+        raise ValueError("LOOMI_MCP_PROJECT_ID environment variable is not set.")
 
     if progress_callback:
-        progress_callback(f"Connecting to {mcp_url} ...")
+        progress_callback("Connecting to live MCP...")
 
     snapshot_data = {
         "fetched_at": datetime.now(timezone.utc).isoformat(),
@@ -52,18 +58,23 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
         "errors": []
     }
 
+    server_params = StdioServerParameters(
+        command="npx.cmd" if sys.platform == "win32" else "npx",
+        args=["-y", "mcp-remote", mcp_url]
+    )
+
     try:
-        async with sse_client(mcp_url) as (read_stream, write_stream):
+        async with stdio_client(server_params) as (read_stream, write_stream):
             async with ClientSession(read_stream, write_stream) as session:
                 await session.initialize()
                 
                 queries = [
-                    ("checkout_trend", "execute_analytics_eql", {"query": "SELECT count() FROM events WHERE name='checkout' AND timestamp >= now() - 14d GROUP BY date"}),
-                    ("cart_trend", "execute_analytics_eql", {"query": "SELECT count() FROM events WHERE name='cart_update' AND timestamp >= now() - 14d GROUP BY date"}),
-                    ("funnel_overall", "get_funnel", {"funnel_id": "session_to_checkout"}),
-                    ("funnel_mobile", "get_funnel", {"funnel_id": "mobile_session_to_checkout"}),
-                    ("campaign_activity", "execute_analytics_eql", {"query": "SELECT count() FROM campaigns WHERE timestamp >= now() - 14d GROUP BY date, action_type"}),
-                    ("device_breakdown", "execute_analytics_eql", {"query": "SELECT count() FROM events WHERE name='session_start' GROUP BY device"})
+                    ("checkout_trend", "execute_analytics_eql", {"project_id": project_id, "query": "select count event checkout by row any event timestamp grouping top 14 format year month day in last 14 days"}),
+                    ("cart_trend", "execute_analytics_eql", {"project_id": project_id, "query": "select count event cart_update by row any event timestamp grouping top 14 format year month day in last 14 days"}),
+                    ("device_breakdown", "execute_analytics_eql", {"project_id": project_id, "query": "select count event session_start by event session_start.device grouping top 10 in last 7 days"}),
+                    ("campaign_activity", "execute_analytics_eql", {"project_id": project_id, "query": "select count event campaign by row any event timestamp grouping top 14 format year month day by column event campaign.action_type grouping top 5 in last 14 days"}),
+                    ("funnel_overall", "execute_analytics_eql", {"project_id": project_id, "query": "funnel session_start followed by checkout in last 14 days end"}),
+                    ("funnel_mobile", "execute_analytics_eql", {"project_id": project_id, "query": "funnel session_start where .device is in [\"Android\", \"iPhone\", \"iPad\"] followed by checkout in last 14 days end"})
                 ]
 
                 for idx, (intent, tool_name, params) in enumerate(queries):

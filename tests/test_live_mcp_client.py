@@ -10,47 +10,52 @@ from tools.live_evidence_adapter import LiveEvidenceBundle
 
 @pytest.fixture
 def mock_env():
-    with patch.dict(os.environ, {"LOOMI_MCP_ANALYTICS_MARKETING_URL": "http://fake-mcp"}):
+    with patch.dict(os.environ, {
+        "LOOMI_MCP_ANALYTICS_MARKETING_URL": "http://fake-mcp",
+        "LOOMI_MCP_PROJECT_ID": "fake-project"
+    }):
         yield
 
 @pytest.mark.asyncio
 async def test_missing_mcp_dependency_fails_gracefully():
     # If mcp is missing, it should raise RuntimeError
-    with patch.dict("sys.modules", {"mcp.client.sse": None}):
+    with patch.dict("sys.modules", {"mcp.client.stdio": None}):
         with pytest.raises(RuntimeError, match="The 'mcp' package is not installed"):
             await refresh_live_mcp_evidence()
 
 @pytest.mark.asyncio
 async def test_live_evidence_can_be_normalized(mock_env):
-    # Mock the SSE client to return a fake session
-    mock_sse = SseMockContextManager()
+    # Mock the stdio client to return a fake session
+    mock_stdio = SseMockContextManager()  # reused for stdio as it returns (read, write)
     mock_session = SessionMockContextManager()
     
     # We will mock the call_tool response with dynamic content based on the intent
     def mock_call_tool(tool_name, params):
         res = MagicMock()
-        if "checkout" in params.get("query", "") or "cart" in params.get("query", ""):
-            res.content = []
-        elif tool_name == "get_funnel":
+        if "funnel" in params.get("query", ""):
             res.content = {"sessions": 1000, "checkouts": 250, "conversion_rate": 0.25}
+        elif "checkout" in params.get("query", "") or "cart" in params.get("query", "") or "campaign" in params.get("query", ""):
+            res.content = []
+        elif "session_start" in params.get("query", ""):
+            res.content = {}
         else:
-            res.content = {} if tool_name == "execute_analytics_eql" and "session_start" in params.get("query", "") else []
+            res.content = []
         return res
     
     from unittest.mock import AsyncMock
     mock_session.obj.call_tool = AsyncMock(side_effect=mock_call_tool)
     mock_session.obj.initialize = AsyncMock(return_value=None)
     
-    mock_sse_client = MagicMock()
-    mock_sse_client.return_value = mock_sse
+    mock_stdio_client = MagicMock()
+    mock_stdio_client.return_value = mock_stdio
     mock_client_session = MagicMock()
     mock_client_session.return_value = mock_session
 
     mcp_mock = MagicMock()
-    mcp_mock.client.sse.sse_client = mock_sse_client
+    mcp_mock.client.stdio.stdio_client = mock_stdio_client
     mcp_mock.client.session.ClientSession = mock_client_session
     
-    with patch.dict("sys.modules", {"mcp.client.sse": mcp_mock.client.sse, "mcp.client.session": mcp_mock.client.session}):
+    with patch.dict("sys.modules", {"mcp.client.stdio": mcp_mock.client.stdio, "mcp.client.session": mcp_mock.client.session}):
         with patch("asyncio.sleep", return_value=None):  # Skip rate limiting sleep in tests
             bundle = await refresh_live_mcp_evidence()
             assert isinstance(bundle, LiveEvidenceBundle)
