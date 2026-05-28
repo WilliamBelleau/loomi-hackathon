@@ -1,12 +1,12 @@
-# Architecture — Simons Unified Commerce Signal Agent
+# Architecture – Simons Unified Commerce Signal Agent
 
 ## Overview
 
-The agent is a Python pipeline that ingests signals from multiple mock adapters,
+The agent is a Python pipeline that ingests signals from multiple adapters,
 scores the evidence, and produces a structured `TriageBrief` for human review.
 
-All MCP adapters are currently mocked with local fixture data.
-No real Bloomreach MCP connections exist yet.
+The Analytics and Marketing MCP adapters connect live to Bloomreach Loomi Connect.
+Conversations MCP and Commerce Ops are synthetic fixture adapters to complete the triage scenario.
 
 ---
 
@@ -14,21 +14,21 @@ No real Bloomreach MCP connections exist yet.
 
 ```mermaid
 flowchart TD
-    User(["👤 Business Analyst / Commerce Operations"])
-    UI["🖥️ Streamlit UI\n(app/ui_streamlit.py)"]
+    User(["🛒  Business Analyst / Commerce Operations"])
+    UI["💻 Streamlit UI\n(app/ui_streamlit.py)"]
     Orch["🧠 Python Agent Runtime\n(agent/orchestrator.py)"]
 
-    Analytics["📈 Analytics MCP Adapter\n(tools/analytics_mcp.py)\n[MOCKED]"]
-    Conversations["💬 Conversations MCP Adapter\n(tools/conversations_mcp.py)\n[MOCKED]"]
-    Ops["⚙️ Synthetic Ops Adapter\n(tools/synthetic_ops.py)\n[MOCKED]"]
-    Marketing["📣 Marketing MCP Adapter\n(tools/marketing_mcp_optional.py)\n[MOCKED, OPTIONAL]"]
+    Analytics["📈 Analytics MCP Adapter\n(Live execute_analytics_eql or Fallback)"]
+    Conversations["💬 Conversations MCP Adapter\n(tools/conversations_mcp.py)\n[SYNTHETIC]"]
+    Ops["⚙️ Synthetic Ops Adapter\n(tools/synthetic_ops.py)\n[SYNTHETIC]"]
+    Marketing["🎯 Marketing MCP Adapter\n(Live campaign check or Fallback)"]
 
-    Scoring["📊 Scoring Engine\n(agent/scoring.py)\nTransparent, additive"]
-    Reasoning["🔎 Reasoning Engine\n(agent/prompts.py)\nDeterministicReasoningEngine"]
+    Scoring["⚖️ Scoring Engine\n(agent/scoring.py)\nTransparent, additive"]
+    Reasoning["🧩 Reasoning Engine\n(agent/prompts.py)\nDeterministicReasoningEngine"]
 
-    Brief["📋 TriageBrief\n(agent/schemas.py)\nStructured output"]
-    Gate["🚦 Human Review Gate\nhuman_review_required = True"]
-    Note["📝 Draft Incident Note\nSimulated only — not filed"]
+    Brief["📄 TriageBrief\n(agent/schemas.py)\nStructured output"]
+    Gate["🚧 Human Review Gate\nhuman_review_required = True"]
+    Note["📝 Draft Incident Note\nSimulated only – not filed"]
 
     User -->|Enters triage prompt| UI
     UI -->|run| Orch
@@ -59,12 +59,13 @@ flowchart TD
 | Orchestrator | `agent/orchestrator.py` | Pipeline coordination, tool trace |
 | Schemas | `agent/schemas.py` | Pydantic models for all data structures |
 | Scoring | `agent/scoring.py` | Transparent, additive severity/confidence |
-| Reasoning Engine | `agent/prompts.py` | TriageBrief assembly (DeterministicReasoningEngine) |
-| Analytics Adapter | `tools/analytics_mcp.py` | Load/parse analytics signals (mocked) |
-| Conversations Adapter | `tools/conversations_mcp.py` | Load/parse conversation intent signals (mocked) |
-| Ops Adapter | `tools/synthetic_ops.py` | Load/parse ops error signals (mocked) |
-| Marketing Adapter | `tools/marketing_mcp_optional.py` | Load/parse marketing context (mocked, optional) |
-| Fixtures | `data/*.json`, `data/*.yml` | Synthetic scenario data |
+| Reasoning Engine | `agent/prompts.py` | TriageBrief assembly |
+| Live MCP Client | `tools/live_mcp_client.py` | Live `stdio_client` executing EQL |
+| Live Evidence Adapter | `tools/live_evidence_adapter.py` | Normalizes live bundle into signals |
+| Analytics Adapter | `tools/analytics_mcp.py` | Fallback mock analytics signals |
+| Conversations Adapter | `tools/conversations_mcp.py` | Load/parse synthetic intent signals |
+| Ops Adapter | `tools/synthetic_ops.py` | Load/parse synthetic ops error signals |
+| Marketing Adapter | `tools/marketing_mcp_optional.py` | Fallback mock marketing context |
 
 ---
 
@@ -72,16 +73,16 @@ flowchart TD
 
 ```
 User Prompt
-  → classify_prompt() — keyword check
-  → AnalyticsMCPClient.get_anomalies() → List[AnalyticsSignal]
-  → ConversationsMCPClient.get_intent_signals() → List[ConversationSignal]
-  → SyntheticOpsClient.get_ops_signals() → List[OpsSignal]
-  → MarketingMCPClientOptional.get_context() → Optional[MarketingContext]
-  → EvidenceBundle (aggregated)
-  → score_evidence(bundle) → ScoringResult (severity, confidence, reasoning)
-  → DeterministicReasoningEngine.build_triage_brief(...) → TriageBrief
-  → Streamlit renders TriageBrief sections
-  → Human reviews and decides on action
+  ↓ classify_prompt() – keyword check
+  ↓ Analytics MCP (Live EQL or Cache/Mock Fallback) → List[AnalyticsSignal]
+  ↓ Marketing MCP (Live EQL or Cache/Mock Fallback) → Optional[MarketingContext]
+  ↓ Conversations MCP (Synthetic Fixture) → List[ConversationSignal]
+  ↓ SyntheticOpsClient.get_ops_signals() → List[OpsSignal]
+  ↓ EvidenceBundle (aggregated)
+  ↓ score_evidence(bundle) → ScoringResult (severity, confidence, reasoning)
+  ↓ DeterministicReasoningEngine.build_triage_brief(...) → TriageBrief
+  ↓ Streamlit renders TriageBrief sections
+  ↓ Human reviews and decides on action
 ```
 
 ---

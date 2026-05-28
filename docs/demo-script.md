@@ -1,4 +1,4 @@
-# Demo Script — Simons Unified Commerce Signal Agent
+# Demo Script – Simons Unified Commerce Signal Agent
 # Bloomreach Loomi Connect AI Hackathon 2026
 # Presenter: William Belleau, La Maison Simons
 # Target duration: 5–6 minutes
@@ -10,48 +10,44 @@
 - Open terminal in project root
 - Run: `python -m streamlit run app/ui_streamlit.py`
 - Browser opens at `http://localhost:8501`
+- In the sidebar, select **Live Loomi MCP Mode** (or Snapshot Mode if network is risky).
 - Default prompt is pre-filled: "What customer experience friction should we investigate today?"
-- Verify the mock banner is visible at the top
 
 ---
 
 ## What Judges Should Observe
 
-*For evaluators reviewing this repo or watching the demo — here are the five key signals to look for:*
+*For evaluators reviewing this repo or watching the demo – here are the key signals to look for:*
 
 | # | What to observe | Where to see it |
 |---|---|---|
-| 1 | **Visible tool trace** — four adapters called in sequence, all labeled CALLED (MOCK) | Immediately after clicking Run Triage |
-| 2 | **Transparent scoring** — every severity/confidence point traced to a named signal | Scoring reasoning section (open by default) |
-| 3 | **Evidence correlation** — Analytics + Conversations + Ops all point to the same issue | Evidence cards, color-coded by source |
-| 4 | **Draft incident note** — pre-structured, Jira-style, display-only | Draft Incident / Jira-Style Note section |
-| 5 | **Human review gate** — always visible, always active, enforced by schema and tests | Red gate box at the bottom of the triage output |
-| 6 | **Simulated actions only** — no automated action, no real ticket | Simulated Actions disclaimer below the gate |
-| 7 | **Adapter-first architecture** — one method body replacement per adapter to go live | `tools/` directory, each adapter has a documented Phase 2 swap point |
+| 1 | **Live MCP tool trace** | Immediately after clicking Run Triage (Analytics is LIVE, Ops is SYNTHETIC) |
+| 2 | **Transparent scoring** | Scoring reasoning section (every point traced to a named signal) |
+| 3 | **Evidence correlation** | Evidence cards, color-coded by source (Live vs Synthetic) |
+| 4 | **Draft incident note** | Draft Incident / Jira-Style Note section |
+| 5 | **Human review gate** | Red gate box at the bottom (always active, enforced by schema) |
+| 6 | **Simulated actions only** | Simulated Actions disclaimer below the gate |
+| 7 | **True Loomi MCP Usage** | The agent calls `mcp-remote` live and executes EQL dynamically |
 
 ---
 
 ## Demo Narrative (5–6 minutes)
 
-### 0:00 — 0:45 | Context and Problem (45 seconds)
+### 0:00 – 0:45 | Context and Problem (45 seconds)
 
 **Say:**
-> "I'm William Belleau, from La Maison Simons — a premium Canadian omnichannel retailer.
+> "I'm William Belleau, from La Maison Simons – a premium Canadian omnichannel retailer.
 > Unified commerce teams face a constant challenge: when something goes wrong for customers,
 > the signals are scattered across analytics dashboards, AI chat logs, payment systems,
 > and operational monitors. Correlating these signals manually is slow, reactive, and
 > requires expert knowledge that not everyone has.
 >
-> Today I'm showing you the Simons Unified Commerce Signal Agent — an agentic decision-support
-> tool built on the Bloomreach Loomi Connect MCP framework."
-
-**Point to:**
-- Project header
-- Mock banner ("All MCP calls are currently mocked — this is the honest state of the project")
+> Today I'm showing you the Simons Unified Commerce Signal Agent – an agentic decision-support
+> tool built directly onto the Bloomreach Loomi Connect MCP framework."
 
 ---
 
-### 0:45 — 1:15 | The Question (30 seconds)
+### 0:45 – 1:15 | The Question (30 seconds)
 
 **Say:**
 > "The agent starts with a single natural language question a business analyst or
@@ -67,35 +63,33 @@
 
 ---
 
-### 1:15 — 2:00 | Tool Trace (45 seconds)
+### 1:15 – 2:00 | Tool Trace (45 seconds)
 
 **Say:**
-> "Watch the tool trace. The agent is calling four adapters in sequence."
+> "Watch the tool trace. The agent is pulling real context from Bloomreach."
 
-**Point to each trace item:**
-- ✅ Analytics MCP Adapter — CALLED (MOCK) · 3 signals
-- ✅ Conversations MCP Adapter — CALLED (MOCK) · 2 signals
-- ✅ Synthetic Ops Adapter — CALLED (MOCK) · 1 signal
-- ✅ Marketing MCP Adapter (Optional) — CALLED (MOCK) · no campaign spike
+**Point to the trace items:**
+- 📈 Analytics MCP Adapter – CALLED (LIVE)
+- 💬 Conversations MCP Adapter – CALLED (SYNTHETIC)
+- ⚙️ Synthetic Ops Adapter – CALLED (SYNTHETIC)
 
 **Say:**
-> "In a real deployment, the Analytics and Conversations adapters would be live
-> Bloomreach Loomi Connect MCP calls. Today they're mocked with synthetic fixtures —
-> and that's clearly labeled everywhere. The agent knows its own limitations."
+> "The Analytics adapter is connecting live to Loomi Connect via `mcp-remote` and executing EQL to pull real checkout drop-off data. 
+> To complete the omnichannel triage scenario, the Ops and Conversations data are synthetic fixtures—representing internal retailer systems like Datadog or OMS that don't exist in the Bloomreach sandbox."
 
 ---
 
-### 2:00 — 2:45 | Severity, Confidence, and Scoring (45 seconds)
+### 2:00 – 2:45 | Severity, Confidence, and Scoring (45 seconds)
 
 **Say:**
-> "The agent scores the evidence transparently — no black-box ML, no magic numbers."
+> "The agent scores the evidence transparently – no black-box ML, no magic numbers."
 
 **Point to:**
 - Severity badge (4/5 HIGH)
 - Confidence bar (~90%)
 
 **Click "Scoring reasoning" expander and read one line:**
-> "Analytics: anomaly detected — 18% conversion drop vs baseline. +0.30 confidence.
+> "Analytics: anomaly detected – 18% conversion drop vs baseline. +0.30 confidence.
 > Ops: threshold-breached error signal. +1 severity, +0.25 confidence.
 > Correlation: 3 independent sources. +0.15 confidence."
 
@@ -105,26 +99,26 @@
 
 ---
 
-### 2:45 — 3:45 | Evidence Cards and Root Causes (60 seconds)
+### 2:45 – 3:45 | Evidence Cards and Root Causes (60 seconds)
 
 **Scroll to evidence cards:**
 
 **Say:**
-> "Three independent signal sources are pointing at the same issue."
+> "Live Bloomreach signals and synthetic Ops signals are pointing at the exact same issue."
 
 **Point to each card:**
-- 📈 Analytics: Checkout-start conversion down 18% on Mobile Web, Quebec
-- 📈 Analytics: Add-to-cart is stable — product demand is not the driver
-- 💬 Conversations: 'payment_failed' intent up 42% with customer phrases like 'my payment keeps failing'
-- ⚙️ Ops: Payment Gateway authorization failure rate 23% — well above the 5% threshold
+- 📉 Analytics (Live): Checkout-start conversion down on Mobile Web
+- 📉 Analytics (Live): Add-to-cart is stable – product demand is not the driver
+- 💬 Conversations (Synthetic): 'payment_failed' intent up 42%
+- ⚙️ Ops (Synthetic): Payment Gateway authorization failure rate 23%
 
 **Scroll to root causes:**
 > "The agent correlates these to a suspected payment routing or authorization failure
-> on the Quebec payment path — not a demand issue, not a product issue."
+> on the Quebec payment path – not a demand issue, not a product issue."
 
 ---
 
-### 3:45 — 4:30 | Triage Brief and Draft Incident Note (45 seconds)
+### 3:45 – 4:30 | Triage Brief and Draft Incident Note (45 seconds)
 
 **Scroll to triage brief summary:**
 - Issue title, channel, region, owner recommendation: Commerce + Payments Squad
@@ -136,19 +130,19 @@
 **Scroll to draft incident note:**
 
 **Say:**
-> "The agent drafts a Jira-style incident note — pre-structured, with all the
+> "The agent drafts a Jira-style incident note – pre-structured, with all the
 > evidence and context. A Commerce + Payments engineer can review this, validate it,
 > and file the real ticket. The agent doesn't file it."
 
 ---
 
-### 4:30 — 5:15 | Human Review Gate and Responsible Design (45 seconds)
+### 4:30 – 5:15 | Human Review Gate and Responsible Design (45 seconds)
 
 **Scroll to the red human review gate:**
 
 **Say:**
 > "This gate is always visible, always active. The agent is designed to produce
-> a triage brief for a human — not to act autonomously.
+> a triage brief for a human – not to act autonomously.
 >
 > `human_review_required = True` is a constant field in the schema and enforced by tests.
 > `simulated_actions_only = True` is the same. You cannot produce a brief with these false.
@@ -160,19 +154,13 @@
 
 ---
 
-### 5:15 — 5:45 | Phase 2 Path and Wrap-Up (30 seconds)
+### 5:15 – 5:45 | Extensibility and Wrap-Up (30 seconds)
 
 **Say:**
-> "The architecture is adapter-first. Every mock adapter has a clear swap point
-> documented in the code. Once Bloomreach shares sandbox credentials and tool schemas,
-> we replace the method body of each adapter — the orchestrator, the scoring, and the UI
-> don't change.
->
-> Phase 2 also introduces a Gemini reasoning engine behind the same ReasoningEngine protocol —
-> again, without touching the pipeline.
+> "The architecture is modular. We already replaced the mock Analytics adapter with a live Loomi Connect MCP client. For a retailer to take this to production, they would just plug their internal Datadog API into the Ops adapter.
 >
 > The question 'What customer experience friction should we investigate today?'
-> becomes a signal-correlated, scored, human-reviewed triage brief in seconds —
+> becomes a signal-correlated, scored, human-reviewed triage brief in seconds –
 > not hours."
 
 **End.**
@@ -181,13 +169,12 @@
 
 ## Backup / Q&A Talking Points
 
-- **"Why not just use a dashboard?"** — Dashboards show one source at a time.
+- **"Why not just use a dashboard?"** – Dashboards show one source at a time.
   The agent correlates across sources and surfaces the intersection.
-- **"Is the scoring trustworthy?"** — Every point is traceable and displayed.
+- **"Is the scoring trustworthy?"** – Every point is traceable and displayed.
   The agent tells you why it thinks what it thinks.
-- **"What about false positives?"** — Human review gate. The agent recommends,
+- **"What about false positives?"** – Human review gate. The agent recommends,
   a human decides.
-- **"What happens when MCP credentials arrive?"** — One method body replaced per adapter.
-  Architecture and tests remain the same.
-- **"Why Streamlit and not a full app?"** — Hackathon. Reliable demo > architecture complexity.
-  Phase 3 is a proper internal tool.
+- **"Why are some adapters synthetic?"** – The live Loomi Connect integration handles the Analytics and Marketing context. The synthetic adapters represent proprietary retailer systems (OMS, payment gateways) that naturally wouldn't exist inside a Bloomreach demo sandbox.
+- **"What about the LLM integration?"** – The triage brief assembly runs via a `ReasoningEngine` protocol. It currently uses a deterministic implementation for demo reliability, but swapping to an LLM like Gemini is as simple as injecting a new class.
+- **"Why Streamlit and not a full app?"** — Hackathon. Reliable demo > architecture complexity. Phase 3 is a proper internal tool.

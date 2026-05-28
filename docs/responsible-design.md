@@ -32,52 +32,49 @@ No API keys, tokens, passwords, or credentials of any kind are committed to this
 The `.env.example` file contains only placeholder variable names with no values.
 The `.gitignore` file excludes `.env` files from version control.
 
-### ✅ No External Network Calls
-The current implementation makes no outbound network requests.
-All adapter calls are resolved locally from fixture files.
+### 2. No External Network Calls (Beyond Loomi Sandbox)
+The current implementation only makes outbound network requests to the **Bloomreach Loomi Connect Sandbox** via `mcp-remote`. It makes absolutely no calls to any production retailer infrastructure, payment gateway, OMS, or internal Datadog/Splunk instances. The synthetic ops adapters are fully local.
 
 ---
 
 ## Agent Actions
 
-### ✅ No Automated Customer-Facing Actions
+### 1. No Automated Customer-Facing Actions
 This agent does not send emails, push notifications, chat messages, or any
 communication to customers. All outputs are internal, informational, and for
 human review only.
 
-### ✅ No Real Ticket or Incident Creation
+### 2. No Real Ticket or Incident Creation
 The draft incident note produced by this agent is a text artifact displayed
 in the Streamlit UI. It is not filed to Jira, ServiceNow, PagerDuty, or any
 incident management system. No integrations with ticketing systems exist.
 
-### ✅ All Business-Impacting Actions Are Simulated
+### 3. All Business-Impacting Actions Are Simulated
 The agent can recommend actions (e.g., investigate payment routing, prepare a
 customer service macro). It cannot execute any of these actions. All
 recommended actions require human decision and manual execution.
 
-### ✅ Human Review Required Before Any Action
+### 4. Human Review Required Before Any Action
 The `TriageBrief` schema enforces `human_review_required = True` as a constant field.
 The Streamlit UI displays a prominent human review gate on every triage output.
-Tests enforce this invariant — a brief with `human_review_required = False` cannot be produced.
+Tests enforce this invariant – a brief with `human_review_required = False` cannot be produced.
 
 ---
 
 ## Transparency
 
-### ✅ Explainable Scoring
+### 1. Explainable Scoring
 The severity and confidence scores are computed by a transparent, additive function
 (`agent/scoring.py`). Every point of severity or confidence is traceable to a named signal.
 The scoring reasoning is displayed in the UI and included in the `TriageBrief`.
 
-### ✅ Tool Trace
-Every adapter call is logged with its status (MOCK / LIVE / SKIPPED) and included
+### 2. Tool Trace
+Every adapter call is logged with its status (MOCK / LIVE / SKIPPED / SNAPSHOT) and included
 in the triage brief output. Users and reviewers can see exactly which data sources
 contributed to the brief.
 
-### ✅ Mock State Clearly Labeled
-The Streamlit UI displays a prominent banner indicating that all MCP calls are
-currently mocked with synthetic fixture data. The tool trace labels each adapter
-as MOCK. The `limitations` field of the `TriageBrief` enumerates all current gaps.
+### 3. Execution Mode Clearly Labeled
+The Streamlit UI clearly indicates whether the agent is running in **Demo Fixture Mode**, **Live Loomi MCP Mode**, or **Snapshot Fallback Mode**. The tool trace labels each adapter's source. The `limitations` field of the `TriageBrief` enumerates any constraints in the current execution mode.
 
 ---
 
@@ -89,7 +86,7 @@ as MOCK. The `limitations` field of the `TriageBrief` enumerates all current gap
 | No production Simons data | ✅ Enforced |
 | No PII | ✅ Enforced |
 | No secrets in repo | ✅ Enforced via .gitignore |
-| No external network calls | ✅ Enforced (no HTTP clients in codebase) |
+| Limited external network | ✅ Connects only to Bloomreach Sandbox |
 | No customer-facing automation | ✅ Enforced by design |
 | No real ticket/incident creation | ✅ No ticketing integrations |
 | All actions simulated | ✅ simulated_actions_only = True (constant) |
