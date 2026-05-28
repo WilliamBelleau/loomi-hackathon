@@ -84,7 +84,27 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
                     
                     try:
                         result = await session.call_tool(tool_name, params)
-                        snapshot_data[intent] = result.content
+                        
+                        import json
+                        parsed_content = result.content
+                        if isinstance(parsed_content, list) and len(parsed_content) > 0 and hasattr(parsed_content[0], "text"):
+                            raw_text = parsed_content[0].text
+                            try:
+                                parsed_content = json.loads(raw_text)
+                                # If this is a funnel query, normalize the EQL response to match our FunnelStats schema
+                                if intent.startswith("funnel_") and parsed_content.get("analysis_type") == "funnel":
+                                    counts = parsed_content.get("data", {}).get("total", {}).get("counts", [0, 0])
+                                    sessions = counts[0] if len(counts) > 0 else 0
+                                    checkouts = counts[1] if len(counts) > 1 else 0
+                                    parsed_content = {
+                                        "sessions": sessions,
+                                        "checkouts": checkouts,
+                                        "conversion_rate": checkouts / sessions if sessions > 0 else 0.0
+                                    }
+                            except json.JSONDecodeError:
+                                parsed_content = raw_text
+                                
+                        snapshot_data[intent] = parsed_content
                         snapshot_data["queries_succeeded"] += 1
                         if progress_callback:
                             progress_callback(f"Success: {intent}")
