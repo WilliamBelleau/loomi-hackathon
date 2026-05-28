@@ -15,7 +15,7 @@ from app.demo_controller import (
 @pytest.fixture
 def mock_brief():
     from agent.schemas import TriageBrief, TraceStatus, ToolTraceEntry
-    
+
     return TriageBrief(
         issue_title="Mock Issue",
         severity=4,
@@ -54,29 +54,29 @@ def test_sanitize_string():
 def test_write_demo_artifact(mock_brief, tmp_path):
     # Override ARTIFACTS_DIR for testing
     from app import demo_controller
-    
+
     with patch.object(demo_controller, 'ARTIFACT_MD', tmp_path / "demo_autopilot_latest.md"), \
          patch.object(demo_controller, 'ARTIFACT_JSON', tmp_path / "demo_autopilot_latest.json"), \
          patch.object(demo_controller, 'ARTIFACTS_DIR', tmp_path), \
          patch.dict(os.environ, {"LOOMI_MCP_ANALYTICS_MARKETING_URL": "https://loomi-mcp-alpha.bloomreach.com/mcp", "LOOMI_MCP_PROJECT_ID": "952be3a0"}):
-         
+
         write_demo_artifact(mock_brief, EvidenceMode.DEMO.value, "Test Source")
-        
+
         md_file = tmp_path / "demo_autopilot_latest.md"
         json_file = tmp_path / "demo_autopilot_latest.json"
-        
+
         assert md_file.exists()
         assert json_file.exists()
-        
+
         md_content = md_file.read_text(encoding="utf-8")
         assert "Mock Issue" in md_content
         assert "loomi-mcp-alpha" not in md_content
         assert "952be3a0" not in md_content
         assert "REDACTED" in md_content
-        
+
         with open(json_file, "r", encoding="utf-8") as f:
             json_data = json.load(f)
-            
+
         assert json_data["_meta"]["mode"] == "demo"
         json_str = json.dumps(json_data)
         assert "loomi-mcp-alpha" not in json_str
