@@ -39,10 +39,10 @@ class LiveEvidenceBundle(BaseModel):
     funnel_overall: Optional[FunnelStats] = None
     funnel_mobile: Optional[FunnelStats] = None
     campaign_spike_detected: bool = False
-    device_breakdown: Dict[str, int] = Field(default_factory=dict)
+    device_breakdown: Any = Field(default_factory=dict)
     queries_attempted: int = 0
     queries_succeeded: int = 0
-    errors: List[Dict[str, Any]] = Field(default_factory=list)
+    errors: List[Any] = Field(default_factory=list)
 
     @property
     def snapshot_age_minutes(self) -> float:

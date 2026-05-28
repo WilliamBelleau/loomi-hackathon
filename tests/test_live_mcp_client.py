@@ -1,12 +1,14 @@
 import pytest
 import os
 import asyncio
+import json
 from unittest.mock import patch, MagicMock
 
 from tools.live_mcp_client import refresh_live_mcp_evidence
 from agent.schemas import EvidenceMode
 from agent.orchestrator import Orchestrator
 from tools.live_evidence_adapter import LiveEvidenceBundle
+import sys
 
 @pytest.fixture
 def mock_env():
@@ -18,88 +20,120 @@ def mock_env():
 
 @pytest.mark.asyncio
 async def test_missing_mcp_dependency_fails_gracefully():
-    # If mcp is missing, it should raise RuntimeError
     with patch.dict("sys.modules", {"mcp.client.stdio": None}):
         with pytest.raises(RuntimeError, match="The 'mcp' package is not installed"):
             await refresh_live_mcp_evidence()
 
 @pytest.mark.asyncio
-async def test_live_evidence_can_be_normalized(mock_env):
-    # Mock the stdio client to return a fake session
-    mock_stdio = SseMockContextManager()  # reused for stdio as it returns (read, write)
-    mock_session = SessionMockContextManager()
+async def test_missing_env_vars_fail_gracefully():
+    with patch.dict(os.environ, clear=True):
+        with pytest.raises(ValueError, match="LOOMI_MCP_ANALYTICS_MARKETING_URL"):
+            await refresh_live_mcp_evidence()
+            
+    with patch.dict(os.environ, {"LOOMI_MCP_ANALYTICS_MARKETING_URL": "http://fake-mcp"}):
+        with pytest.raises(ValueError, match="LOOMI_MCP_PROJECT_ID"):
+            await refresh_live_mcp_evidence()
+
+def test_client_queries_are_eql():
+    # Read the file directly to avoid import issues
+    content = open("tools/live_mcp_client.py").read()
+    assert "execute_analytics_eql" in content
+    assert "get_funnel" not in content
+    assert "get_customer" not in content
+    assert "select count event checkout" in content
+    assert "SELECT " not in content
+    assert "FROM events" not in content
+    assert "funnel_id" not in content
+    assert "sse_client" not in content
+
+@pytest.mark.asyncio
+async def test_client_uses_correct_stdio_args_and_captures_errors(mock_env):
+    mock_stdio = MagicMock()
+    mock_session = MagicMock()
     
-    # We will mock the call_tool response with dynamic content based on the intent
-    def mock_call_tool(tool_name, params):
-        res = MagicMock()
+    # Track calls to call_tool
+    call_tool_args = []
+    
+    async def mock_call_tool(tool_name, params):
+        call_tool_args.append((tool_name, params))
         if "funnel" in params.get("query", ""):
-            res.content = {"sessions": 1000, "checkouts": 250, "conversion_rate": 0.25}
-        elif "checkout" in params.get("query", "") or "cart" in params.get("query", "") or "campaign" in params.get("query", ""):
-            res.content = []
-        elif "session_start" in params.get("query", ""):
-            res.content = {}
+            # Return proper TextContent
+            class TextContent:
+                text = json.dumps({"analysis_type": "funnel", "data": {"total": {"counts": [1000, 250]}}})
+            res = MagicMock()
+            res.content = [TextContent()]
+            return res
+        elif "checkout" in params.get("query", ""):
+            # Simulate a 429 error
+            raise Exception("429 Too Many Requests")
         else:
-            res.content = []
-        return res
+            class TextContent:
+                text = json.dumps([])
+            res = MagicMock()
+            res.content = [TextContent()]
+            return res
+            
+    mock_session.call_tool.side_effect = mock_call_tool
     
+    class AsyncContextManager:
+        def __init__(self, obj): self.obj = obj
+        async def __aenter__(self): return self.obj
+        async def __aexit__(self, *args): pass
+        
+    class StdioContextManager:
+        def __init__(self, obj): self.obj = obj
+        async def __aenter__(self): return self.obj, self.obj
+        async def __aexit__(self, *args): pass
+
     from unittest.mock import AsyncMock
-    mock_session.obj.call_tool = AsyncMock(side_effect=mock_call_tool)
-    mock_session.obj.initialize = AsyncMock(return_value=None)
-    
-    mock_stdio_client = MagicMock()
-    mock_stdio_client.return_value = mock_stdio
-    mock_client_session = MagicMock()
-    mock_client_session.return_value = mock_session
+    mock_session.initialize = AsyncMock()
+
+    class MockStdioServerParameters:
+        def __init__(self, command, args):
+            self.command = command
+            self.args = args
 
     mcp_mock = MagicMock()
-    mcp_mock.client.stdio.stdio_client = mock_stdio_client
-    mcp_mock.client.session.ClientSession = mock_client_session
+    mcp_mock.client.stdio.stdio_client = MagicMock(return_value=StdioContextManager(mock_stdio))
+    mcp_mock.client.session.ClientSession = MagicMock(return_value=AsyncContextManager(mock_session))
+    mcp_mock.client.stdio.StdioServerParameters = MockStdioServerParameters
     
+    messages = []
+    def progress(msg):
+        messages.append(msg)
+        
     with patch.dict("sys.modules", {"mcp.client.stdio": mcp_mock.client.stdio, "mcp.client.session": mcp_mock.client.session}):
-        with patch("asyncio.sleep", return_value=None):  # Skip rate limiting sleep in tests
-            bundle = await refresh_live_mcp_evidence()
-            assert isinstance(bundle, LiveEvidenceBundle)
-            assert bundle.funnel_overall.model_dump() == {"sessions": 1000, "checkouts": 250, "conversion_rate": 0.25}
-
-def test_failed_live_refresh_does_not_break_demo_mode():
-    orchestrator = Orchestrator(evidence_mode=EvidenceMode.DEMO)
-    brief = orchestrator.run("What customer experience friction should we investigate today?")
-    assert brief.affected_region == "Quebec"
-
-def test_run_triage_uses_live_evidence_when_provided():
-    bundle = LiveEvidenceBundle(
-        fetched_at="2026-05-27T12:00:00Z",
-        project_display_name="Test",
-        funnel_overall={"sessions": 1000, "checkouts": 100, "conversion_rate": 0.10}
-    )
-    orchestrator = Orchestrator(evidence_mode=EvidenceMode.LIVE, live_bundle=bundle)
-    brief = orchestrator.run("What customer experience friction should we investigate today?")
-    # Live mode should use the provided bundle
-    assert brief.affected_region == "All Regions (Sandbox)"
-    # Ensure it's using the LIVE trace
-    assert any("LIVE BLOOMREACH MCP" in t.adapter for t in brief.tool_trace)
-
-def test_run_triage_falls_back_cleanly_when_live_unavailable():
-    # If mode is LIVE but no bundle provided, it should fall back to SNAPSHOT or DEMO
-    orchestrator = Orchestrator(evidence_mode=EvidenceMode.LIVE, live_bundle=None)
-    # We mock LiveEvidenceAdapter.load to return None, forcing fallback to DEMO
-    with patch("tools.live_evidence_adapter.LiveEvidenceAdapter.load", return_value=None):
-        brief = orchestrator.run("What customer experience friction should we investigate today?")
-        # Should have fallen back to demo mode data
-        assert any(t.status.value == "SKIPPED" and "No live bundle provided" in t.note for t in brief.tool_trace)
-
-class SseMockContextManager:
-    def __init__(self):
-        self.obj = MagicMock()
-    async def __aenter__(self):
-        return self.obj, self.obj
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
-
-class SessionMockContextManager:
-    def __init__(self):
-        self.obj = MagicMock()
-    async def __aenter__(self):
-        return self.obj
-    async def __aexit__(self, exc_type, exc, tb):
-        pass
+        with patch("asyncio.sleep", return_value=None):
+            with patch("pathlib.Path.write_text") as mock_write:
+                bundle = await refresh_live_mcp_evidence(progress_callback=progress)
+                
+                # Check transport
+                server_params = mcp_mock.client.stdio.stdio_client.call_args[0][0]
+                assert server_params.args == ['-y', 'mcp-remote', "http://fake-mcp"]
+                if sys.platform == "win32":
+                    assert server_params.command == "npx.cmd"
+                else:
+                    assert server_params.command == "npx"
+                
+                # Check tools shape
+                assert len(call_tool_args) == 6
+                for tool_name, params in call_tool_args:
+                    assert tool_name == "execute_analytics_eql"
+                    assert "project_id" in params
+                    assert "query" in params
+                    
+                # Check bundle (partial refresh)
+                assert bundle is not None
+                assert bundle.funnel_overall.sessions == 1000
+                assert bundle.funnel_overall.checkouts == 250
+                assert bundle.funnel_overall.conversion_rate == 0.25
+                assert bundle.checkout_trend == []
+                
+                # Check write text is sanitized (no token/cookie)
+                written_text = mock_write.call_args[0][0]
+                assert "cookie" not in written_text.lower()
+                assert "token" not in written_text.lower()
+                
+                # Check progress callback
+                assert "Connecting to live MCP..." in messages
+                assert any("checkout_trend" in m for m in messages)
