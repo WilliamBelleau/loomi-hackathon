@@ -114,7 +114,7 @@
 
 **Scroll to root causes:**
 > "The agent correlates these to a suspected payment routing or authorization failure
-> on the Quebec payment path – not a demand issue, not a product issue."
+> on the payment path – not a demand issue, not a product issue."
 
 ---
 
@@ -178,3 +178,23 @@
 - **"Why are some adapters synthetic?"** – The live Loomi Connect integration handles the Analytics and Marketing context. The synthetic adapters represent proprietary retailer systems (OMS, payment gateways) that naturally wouldn't exist inside a Bloomreach demo sandbox.
 - **"What about the LLM integration?"** – The triage brief assembly runs via a `ReasoningEngine` protocol. It currently uses a deterministic implementation for demo reliability, but swapping to an LLM like Gemini is as simple as injecting a new class.
 - **"Why Streamlit and not a full app?"** — Hackathon. Reliable demo > architecture complexity. Phase 3 is a proper internal tool.
+
+
+## What is Live vs Synthetic
+
+### Live
+* checkout trend
+* cart trend
+* session-to-checkout funnel
+* mobile funnel
+* campaign activity check
+
+### Synthetic
+* payment authorization failure
+* payment gateway path
+* OMS/fulfillment ops signal
+* checkout step failure
+* region/province segmentation
+
+### Optional/stretch
+* Conversations MCP product discovery catalog

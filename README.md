@@ -47,13 +47,22 @@ The agent:
 
 ## What is Live vs Synthetic
 
-| Signal Source | Live or Synthetic? | Reasoning |
-|---|---|---|
-| **Analytics MCP** | **Live** | Connects to `<LOOMI_MCP_ANALYTICS_MARKETING_URL>` via `mcp-remote` using `execute_analytics_eql` to fetch real funnel, cart, and session data. |
-| **Marketing MCP** | **Live** | Evaluates real campaign traffic spikes to rule out demand-driven anomalies. |
-| **Commerce Ops** | **Synthetic** | Payment authorization failures, OMS context, and fulfillment delays do not exist in the Bloomreach sandbox. |
-| **Conversations MCP** | **Synthetic** | Real Conversations MCP focuses on product catalog discovery, not payment friction. Mock data simulates customer voice (e.g. "payment failed"). |
-| **Cache Fallback** | **Synthetic/Stale** | Preserves reliability if live MCP hits rate limits or auth failure. |
+### Live
+* checkout trend
+* cart trend
+* session-to-checkout funnel
+* mobile funnel
+* campaign activity check
+
+### Synthetic
+* payment authorization failure
+* payment gateway path
+* OMS/fulfillment ops signal
+* checkout step failure
+* region/province segmentation
+
+### Optional/stretch
+* Conversations MCP product discovery catalog
 
 ---
 
@@ -83,7 +92,7 @@ and a human review gate at every step.
 
 ## Primary Demo Scenario
 
-**"Mobile checkout friction affecting Quebec customers."**
+**"Mobile checkout friction affecting customers (sandbox demo dataset)."**
 
 | Signal | Source | Value |
 |---|---|---|
@@ -97,7 +106,7 @@ and a human review gate at every step.
 **Agent output:**
 - Severity: 4/5 HIGH
 - Confidence: ~90%
-- Suspected cause: Payment routing / authorization failure on Quebec payment path
+- Suspected cause: Payment routing / authorization failure on payment path
 - Recommended owner: Commerce + Payments Squad
 - Draft incident note: pre-structured for human filing (not auto-filed)
 
@@ -125,7 +134,7 @@ Click **Run Triage** with the default prompt to run the demo scenario.
 ### Execution Modes
 
 The agent supports the following execution modes directly from the UI sidebar:
-- **Demo Fixture Mode**: Uses local deterministic mock files (`data/*.json`). Guarantees the Quebec mobile checkout friction narrative.
+- **Demo Fixture Mode**: Uses local deterministic mock files (`data/*.json`). Guarantees the mobile checkout friction narrative.
 - **Live Loomi MCP Mode**: Connects live to `execute_analytics_eql` over `mcp-remote` to pull real funnel metrics. If unavailable, falls back gracefully.
 - **Last Successful Refresh (Snapshot Mode)**: Reads `data/live_evidence_snapshot.json` created by previous live MCP runs. Protects demo reliability against rate limits.
 

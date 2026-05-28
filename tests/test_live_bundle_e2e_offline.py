@@ -26,8 +26,8 @@ def test_live_bundle_e2e_offline():
     # Assert synthetic ops remains synthetic
     assert any("SYNTHETIC COMMERCE OPS" in ev for ev in brief.evidence)
     
-    # Assert no Quebec live claim
-    assert "Quebec" not in brief.affected_region
+    # Assert no mock region live claim
+    assert "All regions / sandbox dataset" not in brief.affected_region
     
     # Assert output remains human-reviewed and simulated-only
     assert brief.human_review_required is True

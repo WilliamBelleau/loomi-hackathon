@@ -10,7 +10,7 @@ from within an MCP-compatible IDE client (Antigravity recommended).
 
 **What this achieves:**
 - Confirms real Analytics and Marketing MCP tool names and schemas
-- Determines whether the sandbox can support the "Quebec / Mobile Web checkout drop" scenario
+- Determines whether the sandbox can support the "Mobile Web checkout drop" scenario
 - Provides a basis for Phase D.3 live adapter decisions
 
 **What this does NOT do:**
@@ -128,18 +128,18 @@ Do events have a device type or channel property (e.g., mobile_web, desktop)?
 ```
 
 ```
-Do events have a region or province property (e.g., Quebec, Ontario)?
+Do events have a region or regional property (e.g., US, Canada)?
 ```
 
 ### What to record
 
 - Confirmed event names for checkout funnel steps
 - Property name for device/channel (e.g., `device_type`, `channel`, `platform`)
-- Property name for region/province (e.g., `region`, `province`, `geo_country`)
+- Property name for region/country (e.g., `region`, `province`, `geo_country`)
 - Whether the sandbox has sufficient data to demonstrate a checkout funnel analysis
 
 > **Feasibility question:** Can the sandbox support the mock scenario
-> "mobile checkout friction affecting Quebec customers"?
+> "mobile checkout friction affecting customers (sandbox demo dataset)"?
 > Record: yes / partially / no, with property names that do or don't exist.
 
 ---
@@ -208,7 +208,7 @@ conversion rate change in the last 7 days?
 
 ```
 If a campaign exists: what audience segment does it target?
-Does it include mobile web users or Quebec customers?
+Does it include mobile web users or customers (sandbox demo dataset)?
 ```
 
 ### What to record
@@ -293,7 +293,7 @@ Use this table to record findings from IDE discovery.
 
 1. Document which parts work and which don't.
 2. Consider using live data for what's available (e.g., funnel totals) and keeping mock for
-   the Quebec/Mobile Web segmentation.
+   the Mobile Web segmentation.
 3. Be explicit in the demo: "Sandbox data confirmed checkout funnel access;
    regional segmentation depends on production event property availability."
 

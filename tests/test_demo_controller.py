@@ -32,7 +32,7 @@ def mock_brief():
         business_impact="Medium",
         affected_journey="Checkout",
         affected_channel="Mobile",
-        affected_region="Quebec"
+        affected_region="All regions / sandbox dataset"
     )
 
 def test_run_triage_offline_demo_mode():

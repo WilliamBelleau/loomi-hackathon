@@ -321,7 +321,7 @@ else:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>LIVE LOOMI MCP</strong> &mdash; This session will execute real sequential EQL queries against the Bloomreach sandbox.
+      &#9432;&nbsp; <strong>LIVE LOOMI MCP</strong> &mdash; Live MCP mode uses real aggregated Bloomreach Analytics MCP evidence where available. Synthetic commerce ops remains clearly labeled.
     </div>
     """
 
@@ -797,7 +797,7 @@ else:
 
       <div style="font-size:0.8rem; color:#6f6b64; border-top:1px solid #dedbd3; padding-top:0.85rem; line-height:1.55;">
         &#127919; <strong style="color:#1d1d1b;">Demo scenario:</strong>
-        Mobile checkout friction affecting Quebec customers &mdash;
+        Mobile checkout friction affecting customers (sandbox demo dataset) &mdash;
         checkout-start conversion &darr;18%&nbsp;&middot;&nbsp;
         payment_failed intents &uarr;42%&nbsp;&middot;&nbsp;
         authorization failure rate above threshold.
