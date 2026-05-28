@@ -62,7 +62,7 @@ The agent now features true Live Loomi MCP integration.
 - Funnel and drop-off analysis
 - Conversion rates and session trends
 
-The live adapter connects to `loomi-mcp-alpha.bloomreach.com/mcp` and executes Bloomreach EQL.
+The live adapter connects to `<LOOMI_MCP_ANALYTICS_MARKETING_URL>` and executes Bloomreach EQL.
 It maps the JSON payload into an internal `LiveEvidenceBundle`, which the orchestrator consumes to generate the triage brief.
 
 ---

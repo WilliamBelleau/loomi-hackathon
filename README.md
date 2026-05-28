@@ -49,7 +49,7 @@ The agent:
 
 | Signal Source | Live or Synthetic? | Reasoning |
 |---|---|---|
-| **Analytics MCP** | **Live** | Connects to `loomi-mcp-alpha.bloomreach.com/mcp` via `mcp-remote` using `execute_analytics_eql` to fetch real funnel, cart, and session data. |
+| **Analytics MCP** | **Live** | Connects to `<LOOMI_MCP_ANALYTICS_MARKETING_URL>` via `mcp-remote` using `execute_analytics_eql` to fetch real funnel, cart, and session data. |
 | **Marketing MCP** | **Live** | Evaluates real campaign traffic spikes to rule out demand-driven anomalies. |
 | **Commerce Ops** | **Synthetic** | Payment authorization failures, OMS context, and fulfillment delays do not exist in the Bloomreach sandbox. |
 | **Conversations MCP** | **Synthetic** | Real Conversations MCP focuses on product catalog discovery, not payment friction. Mock data simulates customer voice (e.g. "payment failed"). |
@@ -166,7 +166,7 @@ User Prompt
 
 - **Synthetic/sandbox data only** — no production Simons data, no PII
 - **No secrets in repo** — `.env.example` contains only placeholder names
-- **No external network calls** — all adapters are fully local
+- **Limited external network** — connects only to Bloomreach Sandbox, no internal Simons systems
 - **No automated customer-facing action** — agent recommends, humans decide
 - **No real ticket creation** — draft incident note is a text artifact only
 - **Human review required** — enforced by schema, UI, and tests
@@ -179,7 +179,7 @@ See [`docs/responsible-design.md`](docs/responsible-design.md) for the full stat
 
 | Criterion | How this project addresses it |
 |---|---|
-| **MCP Usage** | AnalyticsMCPClient and ConversationsMCPClient are adapter-first, designed for direct Loomi Connect MCP integration. Documented swap points in every adapter. |
+| **MCP Usage** | Connects live to `execute_analytics_eql` over Loomi Connect via `mcp-remote`. |
 | **Agentic Behavior** | Full pipeline: understand → inspect → correlate → reason → recommend → prepare action. Tool trace visible in UI. |
 | **Business Value** | Compresses multi-system triage from hours to seconds for commerce operations teams. |
 | **Responsible AI** | human_review_required and simulated_actions_only are schema constants enforced by tests. Explainable scoring. No automated action. |
@@ -188,19 +188,6 @@ See [`docs/responsible-design.md`](docs/responsible-design.md) for the full stat
 
 ---
 
-## Known Gaps (Waiting on Bloomreach Sandbox Details)
-
-- Real Bloomreach Analytics MCP endpoint, tool name, and schema
-- Real Bloomreach Conversations MCP endpoint, tool name, and schema
-- Real Bloomreach Marketing MCP endpoint, tool name, and schema
-- LLM-based reasoning (Gemini/Vertex integration deferred to Phase 2)
-- Internal Simons ops data integration (deferred to Phase 3)
-- Authentication / session management for MCP calls
-
-Until these details are available, all adapters are mocked and the demo runs
-reliably from local fixture data with zero external dependencies.
-
----
 
 ## Project Structure
 
