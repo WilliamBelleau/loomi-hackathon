@@ -10,7 +10,7 @@
 
 ```powershell
 pip install -r requirements.txt                      # install dependencies
-python -m pytest -v                                  # run 49 tests (all should pass)
+python -m pytest -v                                  # run full test suite (all should pass)
 python -m streamlit run app/ui_streamlit.py          # launch demo → http://localhost:8501
 ```
 

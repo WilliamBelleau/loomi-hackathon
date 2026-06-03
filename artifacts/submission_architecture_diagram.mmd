@@ -1,0 +1,31 @@
+flowchart TD
+    User(["🛒 Business Analyst / Commerce Operations"])
+    UI["💻 Streamlit UI\n(app/ui_streamlit.py)"]
+    Orch["🧠 Python Agent Runtime\n(agent/orchestrator.py)"]
+
+    Analytics["📈 LIVE: Bloomreach Analytics MCP\nexecute_analytics_eql\ncheckout · cart · funnel · campaign activity"]
+    Ops["⚙️ SYNTHETIC: Commerce Ops Adapter\npayment gateway · OMS · fulfillment\n(signals not in Bloomreach sandbox)"]
+    Conversations["💬 SYNTHETIC: Customer Session Signals\npayment-failed intents\n(fixture data — Conversations MCP is for product catalog)"]
+
+    Scoring["⚖️ Scoring Engine\nTransparent additive\nseverity + confidence"]
+    Reasoning["🧩 Reasoning Engine\nDeterministicReasoningEngine\nroot cause · owner · steps"]
+
+    Brief["📄 TriageBrief\nPydantic schema"]
+    Gate["🚧 Human Review Gate\nhuman_review_required = True\nsimulated_actions_only = True"]
+    Note["📝 Draft Incident Note\nDisplay only — not auto-filed"]
+
+    User -->|"What customer experience friction\nshould we investigate today?"| UI
+    UI -->|run_triage| Orch
+    Orch -->|"Live EQL queries"| Analytics
+    Orch -->|"Synthetic fixture"| Ops
+    Orch -->|"Synthetic fixture"| Conversations
+    Analytics -->|"List[AnalyticsSignal]"| Orch
+    Ops -->|"List[OpsSignal]"| Orch
+    Conversations -->|"List[ConversationSignal]"| Orch
+    Orch -->|"EvidenceBundle"| Scoring
+    Scoring -->|"ScoringResult"| Reasoning
+    Reasoning -->|"TriageBrief"| Brief
+    Brief --> Gate
+    Gate --> Note
+    Note -->|"Display only"| UI
+    UI -->|"Scored triage brief + tool trace"| User
