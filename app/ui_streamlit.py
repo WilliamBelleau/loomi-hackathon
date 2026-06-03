@@ -213,8 +213,8 @@ st.html("""
       font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
       margin-top: 0.2rem;
   ">
-    Correlates analytics anomalies, customer conversation signals, and operational
-    errors into a scored, human-reviewable triage brief &mdash; in seconds.
+    Correlates live analytics evidence, customer friction signals, and commerce operations
+    context into a scored, human-reviewable triage brief &mdash; in seconds.
   </div>
 </div>
 """)
@@ -521,7 +521,7 @@ if run_clicked:
     </div>
     """)
 
-    st.progress(brief.confidence, text=f"Signal confidence: {brief.confidence:.0%}")
+    st.progress(brief.confidence, text=f"Signal confidence: {brief.confidence:.0%} evidence corroboration score")
     with st.expander("🔍 Scoring reasoning (transparent)", expanded=True):
         st.markdown(brief.reasoning_summary)
 
@@ -743,8 +743,9 @@ if run_clicked:
     ">
       &#128274; <strong>Simulated Actions Only.</strong> All outputs are informational and for
       human review only. No real Jira tickets, incidents, customer communications, or operational
-      changes are created by this system. Current MCP adapters are mocked with synthetic fixture
-      data. Production Simons data and PII are never used.
+      changes are created by this system. Live mode uses real aggregated Bloomreach Analytics MCP
+      evidence where available. Customer friction and commerce ops signals are synthetic fixtures
+      because those systems are outside the Bloomreach sandbox. No production Simons data or PII is used.
     </div>
     """)
 
