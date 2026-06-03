@@ -45,36 +45,28 @@ The agent now features true Live Loomi MCP integration.
 
 | Adapter | Role | Status | Source |
 |---|---|---|---|
-| **Analytics MCP** | Core Funnel & Checkout metrics | **Live** | Bloomreach Loomi Connect (`execute_analytics_eql`) |
-| **Marketing MCP** | Campaign traffic correlation | **Live** | Bloomreach Loomi Connect |
-| **Conversations MCP** | Customer intent signals | **Synthetic** | Mock Fixture (Real MCP is for product catalog) |
+| **Analytics MCP** | Checkout, cart, funnel, and campaign activity | **Live** | Bloomreach Loomi Connect (`execute_analytics_eql`) |
+| **Conversations MCP** | Customer intent signals | **Synthetic** | Mock Fixture (Real MCP is for product catalog, not checkout friction) |
 | **Synthetic Ops** | Payment gateway, OMS, fulfillment errors | **Synthetic** | Mock Fixture (Simons internal systems) |
 
 ---
 
-## Analytics MCP (Live Core)
+## Analytics MCP (Live Core — execute_analytics_eql)
 
 **Files:** `tools/live_mcp_client.py` & `tools/live_evidence_adapter.py`
 **Fallback:** `tools/analytics_mcp.py`
 
-**Real MCP capabilities utilized:**
-- Ad-hoc analytics queries (EQL)
-- Funnel and drop-off analysis
-- Conversion rates and session trends
+**Real MCP capabilities utilized via `execute_analytics_eql`:**
+- Checkout-start conversion rate vs 7-day baseline
+- Cart (add-to-cart) trend — to distinguish demand drop from payment friction
+- Session-to-checkout funnel drop-off
+- Mobile funnel analysis
+- Campaign activity evidence — no active campaign rules out demand-driven explanation
 
 The live adapter connects to `<LOOMI_MCP_ANALYTICS_MARKETING_URL>` and executes Bloomreach EQL.
 It maps the JSON payload into an internal `LiveEvidenceBundle`, which the orchestrator consumes to generate the triage brief.
 
----
-
-## Marketing MCP (Live Supporting Context)
-
-**Files:** Reuses live client via `tools/live_evidence_adapter.py`
-**Fallback:** `tools/marketing_mcp_optional.py`
-
-**Real MCP capabilities utilized:**
-- Detect active campaigns
-- Negative correlation check (no active campaign = demand surge is not a plausible explanation for payment failure)
+> **Note:** Campaign activity is queried through `execute_analytics_eql` as part of the Analytics MCP surface. There is no separate Marketing MCP live call.
 
 ---
 

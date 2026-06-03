@@ -5,8 +5,9 @@
 The agent is a Python pipeline that ingests signals from multiple adapters,
 scores the evidence, and produces a structured `TriageBrief` for human review.
 
-The Analytics and Marketing MCP adapters connect live to Bloomreach Loomi Connect.
-Conversations MCP and Commerce Ops are synthetic fixture adapters to complete the triage scenario.
+The Analytics MCP adapter connects live to Bloomreach Loomi Connect via `execute_analytics_eql`,
+including campaign activity evidence. Conversations MCP and Commerce Ops are synthetic fixture
+adapters that represent signal sources unavailable in the Bloomreach sandbox.
 
 ---
 
@@ -18,10 +19,9 @@ flowchart TD
     UI["💻 Streamlit UI\n(app/ui_streamlit.py)"]
     Orch["🧠 Python Agent Runtime\n(agent/orchestrator.py)"]
 
-    Analytics["📈 Analytics MCP Adapter\n(Live execute_analytics_eql or Fallback)"]
-    Conversations["💬 Conversations MCP Adapter\n(tools/conversations_mcp.py)\n[SYNTHETIC]"]
-    Ops["⚙️ Synthetic Ops Adapter\n(tools/synthetic_ops.py)\n[SYNTHETIC]"]
-    Marketing["🎯 Marketing MCP Adapter\n(Live campaign check or Fallback)"]
+    Analytics["📈 Live: Analytics MCP\n(execute_analytics_eql)\ncheckout · cart · funnel · campaign"]
+    Ops["⚙️ Synthetic: Commerce Ops Adapter\n(tools/synthetic_ops.py)\npayment gateway · OMS · fulfillment"]
+    Conversations["💬 Synthetic: Customer Session Signals\n(tools/conversations_mcp.py)\npayment-failed intents — fixture data"]
 
     Scoring["⚖️ Scoring Engine\n(agent/scoring.py)\nTransparent, additive"]
     Reasoning["🧩 Reasoning Engine\n(agent/prompts.py)\nDeterministicReasoningEngine"]
@@ -32,14 +32,12 @@ flowchart TD
 
     User -->|Enters triage prompt| UI
     UI -->|run| Orch
-    Orch --> Analytics
-    Orch --> Conversations
-    Orch --> Ops
-    Orch -.->|optional| Marketing
+    Orch -->|Live EQL queries| Analytics
+    Orch -->|Synthetic fixture| Ops
+    Orch -->|Synthetic fixture| Conversations
     Analytics -->|AnalyticsSignal list| Orch
-    Conversations -->|ConversationSignal list| Orch
     Ops -->|OpsSignal list| Orch
-    Marketing -.->|MarketingContext| Orch
+    Conversations -->|ConversationSignal list| Orch
     Orch -->|EvidenceBundle| Scoring
     Scoring -->|ScoringResult| Reasoning
     Reasoning -->|TriageBrief| Brief
@@ -74,10 +72,13 @@ flowchart TD
 ```
 User Prompt
   ↓ classify_prompt() – keyword check
-  ↓ Analytics MCP (Live EQL or Cache/Mock Fallback) → List[AnalyticsSignal]
-  ↓ Marketing MCP (Live EQL or Cache/Mock Fallback) → Optional[MarketingContext]
-  ↓ Conversations MCP (Synthetic Fixture) → List[ConversationSignal]
-  ↓ SyntheticOpsClient.get_ops_signals() → List[OpsSignal]
+  ↓ Analytics MCP (Live execute_analytics_eql or Cache/Demo Fallback)
+      → checkout trend, cart trend, funnel, mobile funnel, campaign activity
+      → List[AnalyticsSignal]
+  ↓ Conversations MCP (Synthetic Fixture — payment-failed intents)
+      → List[ConversationSignal]
+  ↓ SyntheticOpsClient.get_ops_signals() (Synthetic — payment gateway, OMS)
+      → List[OpsSignal]
   ↓ EvidenceBundle (aggregated)
   ↓ score_evidence(bundle) → ScoringResult (severity, confidence, reasoning)
   ↓ DeterministicReasoningEngine.build_triage_brief(...) → TriageBrief
