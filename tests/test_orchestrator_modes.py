@@ -4,10 +4,10 @@ from agent.orchestrator import Orchestrator
 from agent.schemas import EvidenceMode
 from tools.live_evidence_adapter import LiveEvidenceBundle
 
-def test_default_demo_mode_returns_quebec_demo():
+def test_default_demo_mode_returns_sandbox_demo():
     orchestrator = Orchestrator(evidence_mode=EvidenceMode.DEMO)
     brief = orchestrator.run("What customer experience friction should we investigate today?")
-    assert brief.affected_region == "Quebec"
+    assert brief.affected_region == "All regions / sandbox dataset"
     assert any(t.status.value == "CALLED (MOCK)" for t in brief.tool_trace)
     assert any("SYNTHETIC OPS ADAPTER" in str(t.adapter).upper() for t in brief.tool_trace)
     assert brief.human_review_required is True
@@ -21,7 +21,7 @@ def test_live_mode_with_bundle_uses_live_analytics():
     )
     orchestrator = Orchestrator(evidence_mode=EvidenceMode.LIVE, live_bundle=bundle)
     brief = orchestrator.run("What customer experience friction should we investigate today?")
-    assert brief.affected_region != "Quebec"
+    assert brief.affected_region != "All regions / sandbox dataset"
     assert "All Regions (Sandbox)" in brief.affected_region
     assert any(t.status.value == "CALLED (LIVE)" for t in brief.tool_trace)
     assert any(t.status.value == "CALLED (MOCK)" for t in brief.tool_trace)
@@ -32,7 +32,7 @@ def test_live_mode_with_no_bundle_falls_back():
     with patch("tools.live_evidence_adapter.LiveEvidenceAdapter.load", return_value=None):
         brief = orchestrator.run("What customer experience friction should we investigate today?")
         # Falls back to demo
-        assert brief.affected_region == "Quebec"
+        assert brief.affected_region == "All regions / sandbox dataset"
         # Tool trace mentions fallback
         assert any(t.status.value == "SKIPPED" and "No live bundle provided" in t.note for t in brief.tool_trace)
 
@@ -45,5 +45,5 @@ def test_snapshot_mode_uses_cache():
     )
     with patch("tools.live_evidence_adapter.LiveEvidenceAdapter.load", return_value=bundle):
         brief = orchestrator.run("What customer experience friction should we investigate today?")
-        assert brief.affected_region != "Quebec"
+        assert brief.affected_region != "All regions / sandbox dataset"
         assert any(t.status.value == "CALLED (SNAPSHOT)" for t in brief.tool_trace)

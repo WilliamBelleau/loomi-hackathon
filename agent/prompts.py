@@ -235,7 +235,7 @@ class DeterministicReasoningEngine:
         sev_label = severity_labels.get(score.severity, str(score.severity))
 
         issue_title = (
-            f"[{sev_label}] Mobile Checkout Friction — Quebec — "
+            f"[{sev_label}] Mobile Checkout Friction — Sandbox Dataset — "
             f"Payment Authorization Failures Suspected"
         )
 
@@ -252,7 +252,7 @@ class DeterministicReasoningEngine:
             affected_channel=channel,
             affected_region=region,
             customer_impact=(
-                "Customers on Mobile Web in Quebec are unable to complete checkout. "
+                "Customers on Mobile Web are unable to complete checkout. "
                 "Payment failures are causing abandoned orders and customer frustration."
             ),
             business_impact=(

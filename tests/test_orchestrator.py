@@ -121,8 +121,8 @@ class TestDemoScenario:
     def test_affected_channel_is_mobile(self, brief):
         assert "Mobile" in brief.affected_channel
 
-    def test_affected_region_is_quebec(self, brief):
-        assert "Quebec" in brief.affected_region
+    def test_affected_region_is_sandbox(self, brief):
+        assert "All regions / sandbox dataset" in brief.affected_region
 
     def test_severity_is_high_for_demo_scenario(self, brief):
         """With all three signals active, severity should be at least 4."""

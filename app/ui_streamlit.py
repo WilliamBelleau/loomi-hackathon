@@ -11,8 +11,12 @@ Brand design: Simons-inspired editorial retail aesthetic.
 
 import streamlit as st
 
-from agent.orchestrator import Orchestrator
 from agent.schemas import EvidenceMode
+from app.demo_controller import (
+    refresh_live_evidence_for_ui,
+    run_triage_for_ui,
+    write_demo_artifact
+)
 
 # ─── Page config ─────────────────────────────────────────────────────────────
 
@@ -56,7 +60,6 @@ html, body, .stApp,
     font-family: var(--font-body) !important;
     color: var(--ink) !important;
 }
-section[data-testid="stSidebar"] { display: none !important; }
 
 /* ── Default text ─────────────────────────────────────────────────── */
 /* Intentionally not using broad color:inherit to avoid cascade pollution */
@@ -105,12 +108,6 @@ hr { border: none !important; border-top: 1px solid var(--border) !important; ma
 [data-testid="stBaseButton-primary"]:focus-visible {
     outline: 2px solid #007853 !important;
     outline-offset: 3px !important;
-}
-/* Hide sidebar and its toggle arrow completely */
-section[data-testid="stSidebar"],
-[data-testid="collapsedControl"],
-[data-testid="stSidebarCollapsedControl"] {
-    display: none !important;
 }
 
 /* ── Textarea ────────────────────────────────────────────────────────────── */
@@ -222,6 +219,40 @@ st.html("""
 </div>
 """)
 
+# ─── Query Params & Autopilot Setup ──────────────────────────────────────────
+
+query_params = st.query_params
+qp_demo_mode = query_params.get("demo_mode", "").lower()
+qp_autorun = query_params.get("autorun", "none").lower()
+qp_presentation = query_params.get("presentation", "0") == "1"
+
+default_mode_val = EvidenceMode.DEMO.value
+if qp_demo_mode == "live":
+    default_mode_val = EvidenceMode.LIVE.value
+elif qp_demo_mode == "cache":
+    default_mode_val = EvidenceMode.SNAPSHOT.value
+
+autopilot_signature = f"{qp_demo_mode}:{qp_autorun}:{qp_presentation}"
+is_autopilot = qp_autorun in ["triage", "refresh", "refresh_then_triage"]
+
+if not qp_presentation:
+    st.html("""<style>
+    section[data-testid="stSidebar"],
+    [data-testid="collapsedControl"],
+    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    </style>""")
+else:
+    st.sidebar.markdown("### ⏱ Presentation Cues")
+    st.sidebar.markdown("""
+    - **0:00** Problem
+    - **0:45** Architecture
+    - **1:30** Live MCP refresh
+    - **2:30** Triage output
+    - **3:45** Human review gate
+    - **4:30** Production path
+    - **5:00** Wrap
+    """)
+
 # ─── Mode Selection & Banner ────────────────────────────────────────────────────
 
 mode_options = {
@@ -230,11 +261,15 @@ mode_options = {
     EvidenceMode.SNAPSHOT.value: "Last Successful MCP Refresh",
 }
 
+options_list = [EvidenceMode.DEMO.value, EvidenceMode.LIVE.value, EvidenceMode.SNAPSHOT.value]
+index = options_list.index(default_mode_val) if default_mode_val in options_list else 0
+
 col_mode, col_empty = st.columns([1, 2])
 with col_mode:
     selected_mode_val = st.selectbox(
         "Evidence Mode",
-        options=[EvidenceMode.DEMO.value, EvidenceMode.LIVE.value, EvidenceMode.SNAPSHOT.value],
+        options=options_list,
+        index=index,
         format_func=lambda x: mode_options[x],
         label_visibility="collapsed"
     )
@@ -286,7 +321,7 @@ else:
         border-radius: 2px; padding: 0.65rem 1rem; font-size: 0.82rem; font-weight: 500;
         margin-bottom: 1.1rem; font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
     ">
-      &#9432;&nbsp; <strong>LIVE LOOMI MCP</strong> &mdash; This session will execute real sequential EQL queries against the Bloomreach sandbox.
+      &#9432;&nbsp; <strong>LIVE LOOMI MCP</strong> &mdash; Live MCP mode uses real aggregated Bloomreach Analytics MCP evidence where available. Synthetic commerce ops remains clearly labeled.
     </div>
     """
 
@@ -294,15 +329,13 @@ st.html(banner_html)
 
 if evidence_mode == EvidenceMode.LIVE:
     if st.button("Refresh Live Loomi MCP Evidence", key="refresh_mcp_btn"):
-        from tools.live_mcp_client import refresh_live_mcp_evidence
-        
         progress_text = st.empty()
         def _update_progress(msg: str):
             progress_text.text(f"⏳ {msg}")
-            
+
         with st.spinner("Connecting to live MCP..."):
             try:
-                bundle = asyncio.run(refresh_live_mcp_evidence(_update_progress))
+                bundle = refresh_live_evidence_for_ui(_update_progress)
                 st.session_state["live_evidence_cache"] = bundle
                 progress_text.success("✅ Live MCP refresh complete.")
             except Exception as e:
@@ -333,18 +366,52 @@ with col_btn:
         key="run_triage_btn",
     )
 
+# ─── Autopilot Execution ────────────────────────────────────────────────────────
+
+is_autopilot_execution = False
+if is_autopilot and st.session_state.get("autopilot_signature") != autopilot_signature:
+    st.session_state["autopilot_signature"] = autopilot_signature
+    is_autopilot_execution = True
+
+autopilot_status_box = st.empty()
+
+if is_autopilot_execution:
+    try:
+        if qp_autorun in ["refresh", "refresh_then_triage"] and evidence_mode == EvidenceMode.LIVE:
+            autopilot_status_box.info("Demo Autopilot: running live MCP refresh")
+            bundle = refresh_live_evidence_for_ui()
+            st.session_state["live_evidence_cache"] = bundle
+            autopilot_status_box.success("Demo Autopilot: running live MCP refresh (complete)")
+
+        if qp_autorun in ["triage", "refresh_then_triage"]:
+            if evidence_mode == EvidenceMode.SNAPSHOT:
+                autopilot_status_box.info("Demo Autopilot: using last successful refresh")
+            run_clicked = True
+    except Exception as e:
+        autopilot_status_box.error(f"Demo Autopilot: failed safely - {e}")
+        run_clicked = False
+elif is_autopilot:
+    autopilot_status_box.success("Demo Autopilot: triage complete")
+
 # ─── Agent pipeline ───────────────────────────────────────────────────────────
 
 if run_clicked:
     with st.spinner("Running triage pipeline…"):
-        orchestrator = Orchestrator(
-            evidence_mode=evidence_mode,
-            live_bundle=st.session_state.get("live_evidence_cache") if evidence_mode == EvidenceMode.LIVE else None
-        )
         try:
-            brief = orchestrator.run(user_prompt)
+            brief = run_triage_for_ui(
+                mode=evidence_mode,
+                live_bundle=st.session_state.get("live_evidence_cache") if evidence_mode == EvidenceMode.LIVE else None,
+                prompt=user_prompt
+            )
+
+            if is_autopilot_execution:
+                write_demo_artifact(brief, evidence_mode.value, "Demo Autopilot")
+                autopilot_status_box.success("Demo Autopilot: triage complete")
+
         except ValueError as exc:
             st.error(f"❌ {exc}")
+            if is_autopilot_execution:
+                autopilot_status_box.error(f"Demo Autopilot: failed safely - {exc}")
             st.stop()
 
     # ── Divider: light intake → dark results ─────────────────────────────────
@@ -730,7 +797,7 @@ else:
 
       <div style="font-size:0.8rem; color:#6f6b64; border-top:1px solid #dedbd3; padding-top:0.85rem; line-height:1.55;">
         &#127919; <strong style="color:#1d1d1b;">Demo scenario:</strong>
-        Mobile checkout friction affecting Quebec customers &mdash;
+        Mobile checkout friction affecting customers (sandbox demo dataset) &mdash;
         checkout-start conversion &darr;18%&nbsp;&middot;&nbsp;
         payment_failed intents &uarr;42%&nbsp;&middot;&nbsp;
         authorization failure rate above threshold.

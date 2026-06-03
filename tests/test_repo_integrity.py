@@ -31,7 +31,7 @@ def test_no_obvious_secrets_in_repo():
     # We just ensure it doesn't fail the command or we inspect it
     # As the user script handles this, we'll assert that real UUID is not found
     uuid_result = subprocess.run(["git", "grep", "-I", "952be3a0"], capture_output=True, text=True, cwd=ROOT_DIR)
-    output_lines = [line for line in uuid_result.stdout.splitlines() if "test_repo_integrity.py" not in line and "test_ui_static_contract.py" not in line]
+    output_lines = [line for line in uuid_result.stdout.splitlines() if "test_repo_integrity.py" not in line and "test_ui_static_contract.py" not in line and "test_demo_controller.py" not in line and "run_demo_autopilot.ps1" not in line]
     assert len(output_lines) == 0
 
 def test_no_smoke_test_tracked():

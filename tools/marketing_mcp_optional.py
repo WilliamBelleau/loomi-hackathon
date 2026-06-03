@@ -44,7 +44,7 @@ class MarketingMCPClientOptional:
             traffic_spike_detected=False,
             notes=(
                 "No active campaign with meaningful traffic spike detected "
-                "in the Quebec / Mobile Web segment. "
+                "in the Mobile Web segment. "
                 "Demand surge is not a plausible alternative explanation."
             ),
         )

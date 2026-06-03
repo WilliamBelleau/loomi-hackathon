@@ -35,8 +35,34 @@ The agent:
 6. Produces a structured `TriageBrief` with a draft incident note
 7. Gates all output behind a visible human review requirement
 
-**Current state:** All MCP adapters are mocked with local synthetic fixture data.
-No real Bloomreach sandbox credentials are used. No external network calls are made.
+**Current state:** This is a true Live Loomi MCP demo.
+- Streamlit can call Loomi Connect MCP through `mcp-remote`
+- Uses `execute_analytics_eql` to pull aggregated checkout/cart/funnel/campaign signals
+- Normalizes the response directly into the triage agent
+- **Cache is fallback only**: protects demo reliability if auth/rate limits fail (Last Successful MCP Refresh is not the primary live path)
+- **Synthetic ops is intentional**: payment authorization failures, gateway routing, OMS/fulfillment context do not exist in the Bloomreach sandbox and would come from retailer commerce systems.
+- **Conversations MCP is an optional stretch**: actual Conversations MCP is designed for product discovery / catalog search, not used for payment-friction analytics.
+
+---
+
+## What is Live vs Synthetic
+
+### Live
+* checkout trend
+* cart trend
+* session-to-checkout funnel
+* mobile funnel
+* campaign activity check
+
+### Synthetic
+* payment authorization failure
+* payment gateway path
+* OMS/fulfillment ops signal
+* checkout step failure
+* region/province segmentation
+
+### Optional/stretch
+* Conversations MCP product discovery catalog
 
 ---
 
@@ -55,9 +81,9 @@ across disconnected systems: analytics dashboards, AI chat logs, payment gateway
 OMS, and fulfillment monitors.
 
 Manually correlating these signals is:
-- **Slow** — analysts must open multiple tools and join data mentally
-- **Reactive** — issues are identified after customer impact accumulates
-- **Expert-dependent** — signal correlation requires deep system knowledge
+- **Slow** – analysts must open multiple tools and join data mentally
+- **Reactive** – issues are identified after customer impact accumulates
+- **Expert-dependent** – signal correlation requires deep system knowledge
 
 The agent compresses this workflow from hours to seconds, with full transparency
 and a human review gate at every step.
@@ -66,12 +92,12 @@ and a human review gate at every step.
 
 ## Primary Demo Scenario
 
-**"Mobile checkout friction affecting Quebec customers."**
+**"Mobile checkout friction affecting customers (sandbox demo dataset)."**
 
 | Signal | Source | Value |
 |---|---|---|
 | Checkout-start conversion | Analytics MCP | ↓ 18% vs 7-day baseline |
-| Add-to-cart rate | Analytics MCP | Stable (+0.5%) — demand not the driver |
+| Add-to-cart rate | Analytics MCP | Stable (+0.5%) – demand not the driver |
 | "payment_failed" intent | Conversations MCP | ↑ 42% |
 | "cannot_complete_order" intent | Conversations MCP | ↑ 38% |
 | Payment authorization failure rate | Synthetic Ops | 23% (threshold: 5%) |
@@ -80,7 +106,7 @@ and a human review gate at every step.
 **Agent output:**
 - Severity: 4/5 HIGH
 - Confidence: ~90%
-- Suspected cause: Payment routing / authorization failure on Quebec payment path
+- Suspected cause: Payment routing / authorization failure on payment path
 - Recommended owner: Commerce + Payments Squad
 - Draft incident note: pre-structured for human filing (not auto-filed)
 
@@ -92,6 +118,7 @@ and a human review gate at every step.
 
 ```bash
 pip install -r requirements.txt
+pip install -r requirements-mcp.txt
 ```
 
 ### 2. Run the Streamlit UI
@@ -104,56 +131,43 @@ Opens at `http://localhost:8501`.
 
 Click **Run Triage** with the default prompt to run the demo scenario.
 
+### Execution Modes
+
+The agent supports the following execution modes directly from the UI sidebar:
+- **Demo Fixture Mode**: Uses local deterministic mock files (`data/*.json`). Guarantees the mobile checkout friction narrative.
+- **Live Loomi MCP Mode**: Connects live to `execute_analytics_eql` over `mcp-remote` to pull real funnel metrics. If unavailable, falls back gracefully.
+- **Last Successful Refresh (Snapshot Mode)**: Reads `data/live_evidence_snapshot.json` created by previous live MCP runs. Protects demo reliability against rate limits.
+
 ### 3. Run tests
 
 ```powershell
 python -m pytest -v
 ```
 
+*(Optional)* Run Live E2E test with explicit env vars:
+```bash
+LOOMI_MCP_ANALYTICS_MARKETING_URL=https://... LOOMI_MCP_PROJECT_ID=... RUN_LIVE_MCP_E2E=1 python -m pytest -v tests/integration/test_live_mcp_e2e.py
+```
+
 ---
 
-## Current Mock Architecture
+## Judge-Facing Architecture Summary
+
+**Live Analytics MCP → Agent Reasoning → Synthetic External Ops Context → Human Review Gate**
 
 ```
 User Prompt
-  → classify_prompt()
-  → AnalyticsMCPClient      (loads data/analytics_anomalies.json)
-  → ConversationsMCPClient  (loads data/conversation_intents.json)
-  → SyntheticOpsClient      (loads data/commerce_ops_signals.json)
-  → MarketingMCPClientOptional  (returns stub context)
-  → EvidenceBundle
-  → score_evidence()        (transparent additive scoring)
-  → DeterministicReasoningEngine.build_triage_brief()
-  → TriageBrief (human_review_required=True, simulated_actions_only=True)
-  → Streamlit UI
+  ↓ classify_prompt()
+  ↓ AnalyticsMCPClient      (Live execute_analytics_eql or Cache Fallback)
+  ↓ MarketingMCPClient      (Live campaign check or Cache Fallback)
+  ↓ ConversationsMCPClient  (Synthetic customer voice fixture)
+  ↓ SyntheticOpsClient      (Synthetic internal ops/payment fixture)
+  ↓ EvidenceBundle
+  ↓ score_evidence()        (transparent additive scoring)
+  ↓ DeterministicReasoningEngine.build_triage_brief()
+  ↓ TriageBrief (human_review_required=True, simulated_actions_only=True)
+  ↓ Streamlit UI
 ```
-
-All adapters live in `tools/`. Each has a single public method.
-Scoring logic lives in `agent/scoring.py`.
-Reasoning logic lives in `agent/prompts.py` behind a `ReasoningEngine` protocol.
-The `agent/orchestrator.py` coordinates the pipeline.
-
----
-
-## How Bloomreach MCP Integration Will Replace Mock Adapters
-
-Each mock adapter is a single class with a single public method.
-Replacing mock with real requires changing **only the method body**:
-
-| Adapter | File | Method to replace | Phase |
-|---|---|---|---|
-| Analytics MCP | `tools/analytics_mcp.py` | `get_anomalies()` | Phase 2 |
-| Conversations MCP | `tools/conversations_mcp.py` | `get_intent_signals()` | Phase 2 |
-| Marketing MCP | `tools/marketing_mcp_optional.py` | `get_context()` | Phase 2 |
-| Ops (internal) | `tools/synthetic_ops.py` | `get_ops_signals()` | Phase 3 |
-
-The orchestrator, scoring, schema, and UI do not change.
-
-For the reasoning step, a `GeminiReasoningEngine` can be injected via the orchestrator
-constructor without touching the pipeline (see `agent/prompts.py` for integration notes).
-
-See [`docs/mcp-usage.md`](docs/mcp-usage.md) for the full replacement guide.
-See [`docs/roadmap.md`](docs/roadmap.md) for the phased plan.
 
 ---
 
@@ -161,7 +175,7 @@ See [`docs/roadmap.md`](docs/roadmap.md) for the phased plan.
 
 - **Synthetic/sandbox data only** — no production Simons data, no PII
 - **No secrets in repo** — `.env.example` contains only placeholder names
-- **No external network calls** — all adapters are fully local
+- **Limited external network** — connects only to Bloomreach Sandbox, no internal Simons systems
 - **No automated customer-facing action** — agent recommends, humans decide
 - **No real ticket creation** — draft incident note is a text artifact only
 - **Human review required** — enforced by schema, UI, and tests
@@ -174,7 +188,7 @@ See [`docs/responsible-design.md`](docs/responsible-design.md) for the full stat
 
 | Criterion | How this project addresses it |
 |---|---|
-| **MCP Usage** | AnalyticsMCPClient and ConversationsMCPClient are adapter-first, designed for direct Loomi Connect MCP integration. Documented swap points in every adapter. |
+| **MCP Usage** | Connects live to `execute_analytics_eql` over Loomi Connect via `mcp-remote`. |
 | **Agentic Behavior** | Full pipeline: understand → inspect → correlate → reason → recommend → prepare action. Tool trace visible in UI. |
 | **Business Value** | Compresses multi-system triage from hours to seconds for commerce operations teams. |
 | **Responsible AI** | human_review_required and simulated_actions_only are schema constants enforced by tests. Explainable scoring. No automated action. |
@@ -183,19 +197,6 @@ See [`docs/responsible-design.md`](docs/responsible-design.md) for the full stat
 
 ---
 
-## Known Gaps (Waiting on Bloomreach Sandbox Details)
-
-- Real Bloomreach Analytics MCP endpoint, tool name, and schema
-- Real Bloomreach Conversations MCP endpoint, tool name, and schema
-- Real Bloomreach Marketing MCP endpoint, tool name, and schema
-- LLM-based reasoning (Gemini/Vertex integration deferred to Phase 2)
-- Internal Simons ops data integration (deferred to Phase 3)
-- Authentication / session management for MCP calls
-
-Until these details are available, all adapters are mocked and the demo runs
-reliably from local fixture data with zero external dependencies.
-
----
 
 ## Project Structure
 
@@ -205,6 +206,7 @@ reliably from local fixture data with zero external dependencies.
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
+├── requirements-mcp.txt
 ├── pytest.ini
 ├── app/
 │   ├── __init__.py
@@ -214,14 +216,17 @@ reliably from local fixture data with zero external dependencies.
 │   ├── orchestrator.py         # Agent pipeline
 │   ├── schemas.py              # Pydantic data models
 │   ├── scoring.py              # Transparent scoring
-│   └── prompts.py              # ReasoningEngine protocol + DeterministicReasoningEngine
+│   └── prompts.py              # ReasoningEngine protocol
 ├── tools/
 │   ├── __init__.py
-│   ├── analytics_mcp.py        # Analytics MCP adapter (mocked)
-│   ├── conversations_mcp.py    # Conversations MCP adapter (mocked)
-│   ├── marketing_mcp_optional.py  # Marketing MCP adapter (mocked, optional)
-│   └── synthetic_ops.py        # Synthetic ops adapter (mocked)
+│   ├── live_mcp_client.py      # Live execute_analytics_eql runner
+│   ├── live_evidence_adapter.py # Live bundle normalization
+│   ├── analytics_mcp.py        # Analytics MCP adapter (mock fallback)
+│   ├── conversations_mcp.py    # Conversations MCP adapter (mock fallback)
+│   ├── marketing_mcp_optional.py # Marketing MCP adapter (mock fallback)
+│   └── synthetic_ops.py        # Synthetic ops adapter (fixture)
 ├── data/
+│   ├── live_evidence_snapshot.json # Generated snapshot
 │   ├── analytics_anomalies.json
 │   ├── conversation_intents.json
 │   ├── commerce_ops_signals.json
@@ -233,6 +238,9 @@ reliably from local fixture data with zero external dependencies.
 │   ├── demo-script.md
 │   └── roadmap.md
 └── tests/
+    ├── integration/
+    │   └── test_live_mcp_e2e.py
     ├── test_scoring.py
-    └── test_orchestrator.py
+    ├── test_orchestrator.py
+    └── ... (Comprehensive tests for schema, repo integrity, UI, and live components)
 ```

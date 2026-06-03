@@ -20,7 +20,7 @@ def make_analytics(delta_pct: float, is_anomaly: bool = True) -> AnalyticsSignal
         baseline_value=0.40,
         delta_pct=delta_pct,
         channel="Mobile Web",
-        region="Quebec",
+        region="All regions / sandbox dataset",
         is_anomaly=is_anomaly,
     )
 

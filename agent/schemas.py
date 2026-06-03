@@ -24,7 +24,7 @@ class AnalyticsSignal(BaseModel):
     baseline_value: float = Field(..., description="7-day rolling baseline value")
     delta_pct: float = Field(..., description="Percentage change vs baseline (negative = drop)")
     channel: str = Field(..., description="e.g. 'Mobile Web', 'Desktop'")
-    region: str = Field(..., description="e.g. 'Quebec', 'Ontario', 'All'")
+    region: str = Field(..., description="e.g. \'All regions (sandbox dataset)\'")
     is_anomaly: bool = Field(default=True)
     notes: Optional[str] = None
     source_label: Optional[str] = Field(

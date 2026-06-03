@@ -9,7 +9,7 @@
       "payment error at checkout"
     ],
     "channel": "Mobile Web",
-    "region": "Quebec",
+    "region": "All regions / sandbox dataset",
     "notes": "Intent volume up 42% vs 7-day baseline. Spike began approximately 3.5 hours ago, aligned with analytics conversion drop."
   },
   {
@@ -22,7 +22,7 @@
       "order not placing — what's happening?"
     ],
     "channel": "Mobile Web",
-    "region": "Quebec",
+    "region": "All regions / sandbox dataset",
     "notes": "Intent volume up 38% vs 7-day baseline. Co-occurring with payment_failed intent, suggesting same underlying issue."
   }
 ]
