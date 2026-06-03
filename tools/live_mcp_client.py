@@ -91,8 +91,8 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
                             raw_text = parsed_content[0].text
                             try:
                                 parsed_content = json.loads(raw_text)
-                                # If this is a funnel query, normalize the EQL response to match our FunnelStats schema
-                                if intent.startswith("funnel_") and parsed_content.get("analysis_type") == "funnel":
+                                # Normalize funnel queries → FunnelStats-compatible dict
+                                if intent.startswith("funnel_") and isinstance(parsed_content, dict) and parsed_content.get("analysis_type") == "funnel":
                                     counts = parsed_content.get("data", {}).get("total", {}).get("counts", [0, 0])
                                     sessions = counts[0] if len(counts) > 0 else 0
                                     checkouts = counts[1] if len(counts) > 1 else 0
@@ -101,9 +101,40 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
                                         "checkouts": checkouts,
                                         "conversion_rate": checkouts / sessions if sessions > 0 else 0.0
                                     }
+                                # Normalize trend queries → List[TrendPoint]-compatible list
+                                elif intent in ("checkout_trend", "cart_trend"):
+                                    if isinstance(parsed_content, list):
+                                        pass  # already a list, use as-is
+                                    elif isinstance(parsed_content, dict):
+                                        # Try to extract rows from EQL response shape
+                                        # Common shapes: {"data": [[date, count], ...]} or {"rows": [...]}
+                                        rows = (
+                                            parsed_content.get("data")
+                                            or parsed_content.get("rows")
+                                            or []
+                                        )
+                                        if isinstance(rows, list):
+                                            normalized = []
+                                            for row in rows:
+                                                if isinstance(row, (list, tuple)) and len(row) >= 2:
+                                                    normalized.append({"date": str(row[0]), "count": int(row[1]) if str(row[1]).isdigit() else 0})
+                                                elif isinstance(row, dict) and "date" in row and "count" in row:
+                                                    normalized.append(row)
+                                            parsed_content = normalized
+                                        else:
+                                            # Unknown shape — safe fallback
+                                            parsed_content = []
+                                    else:
+                                        parsed_content = []
                             except json.JSONDecodeError:
-                                parsed_content = raw_text
-                                
+                                # Non-JSON text response — safe fallback for trend fields
+                                if intent in ("checkout_trend", "cart_trend"):
+                                    parsed_content = []
+
+                        # Safety coerce: if a List[TrendPoint] field ended up as a non-list, clear it
+                        if intent in ("checkout_trend", "cart_trend") and not isinstance(parsed_content, list):
+                            parsed_content = []
+
                         snapshot_data[intent] = parsed_content
                         snapshot_data["queries_succeeded"] += 1
                         if progress_callback:

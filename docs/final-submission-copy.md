@@ -129,7 +129,7 @@ Name the user: Business Analyst / Commerce Operations Lead
 - [ ] Streamlit is running: `python -m streamlit run app/ui_streamlit.py`
 - [ ] Demo Fixture mode works: Run Triage → Severity 4/5 → no TypeError
 - [ ] Live MCP mode works: Refresh → Run Triage → CALLED (LIVE) badge appears
-- [ ] No Quebec copy visible anywhere in UI
+- [ ] No unsupported geography copy visible anywhere in UI
 - [ ] Tool trace shows correct adapter labels
 - [ ] Human Review Gate is visible
 - [ ] Draft Incident Note section is visible
