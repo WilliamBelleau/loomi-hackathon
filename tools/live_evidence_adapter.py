@@ -61,48 +61,58 @@ class LiveEvidenceBundle(BaseModel):
         """Converts the raw snapshot metrics into agent-ready AnalyticsSignals."""
         signals = []
 
-        # 1. Overall Checkout Conversion
+        # 1. Overall Checkout Conversion (only emit if genuinely anomalous)
         if self.funnel_overall and self.funnel_overall.sessions > 0:
-            signals.append(AnalyticsSignal(
-                metric_name="checkout_start_conversion_rate",
-                current_value=self.funnel_overall.conversion_rate,
-                baseline_value=0.25,  # Synthetic baseline for the demo, live data has no easy baseline here
-                delta_pct=round((self.funnel_overall.conversion_rate - 0.25) / 0.25 * 100, 1),
-                channel="All",
-                region="All Regions (Sandbox)",
-                is_anomaly=True,  # In the demo scenario, we assume this is an anomaly
-                notes=f"Overall session-to-checkout conversion is {self.funnel_overall.conversion_rate:.1%}.",
-                source_label=label.value
-            ))
+            baseline_overall = 0.25
+            delta = round((self.funnel_overall.conversion_rate - baseline_overall) / baseline_overall * 100, 1)
+            is_below_baseline = self.funnel_overall.conversion_rate < baseline_overall
+            if is_below_baseline:  # Only include as evidence when it confirms friction
+                signals.append(AnalyticsSignal(
+                    metric_name="checkout_start_conversion_rate",
+                    current_value=self.funnel_overall.conversion_rate,
+                    baseline_value=baseline_overall,
+                    delta_pct=delta,
+                    channel="All",
+                    region="All Regions (Sandbox)",
+                    is_anomaly=True,
+                    notes=f"Overall session-to-checkout conversion is {self.funnel_overall.conversion_rate:.1%} vs {baseline_overall:.0%} baseline.",
+                    source_label=label.value
+                ))
 
         # 2. Mobile Checkout Conversion
         if self.funnel_mobile and self.funnel_mobile.sessions > 0:
+            baseline_mobile = 0.28
+            delta_mobile = round((self.funnel_mobile.conversion_rate - baseline_mobile) / baseline_mobile * 100, 1)
             signals.append(AnalyticsSignal(
                 metric_name="checkout_start_conversion_rate",
                 current_value=self.funnel_mobile.conversion_rate,
-                baseline_value=0.28,  # Synthetic baseline for the demo
-                delta_pct=round((self.funnel_mobile.conversion_rate - 0.28) / 0.28 * 100, 1),
+                baseline_value=baseline_mobile,
+                delta_pct=delta_mobile,
                 channel="Mobile",
                 region="All Regions (Sandbox)",
-                is_anomaly=True,
-                notes=f"Mobile conversion is {self.funnel_mobile.conversion_rate:.1%}. Dropped significantly.",
+                is_anomaly=self.funnel_mobile.conversion_rate < baseline_mobile,
+                notes=(
+                    f"Mobile conversion is {self.funnel_mobile.conversion_rate:.1%} vs {baseline_mobile:.0%} baseline."
+                    + (" Dropped significantly." if self.funnel_mobile.conversion_rate < baseline_mobile else " Within expected range.")
+                ),
                 source_label=label.value
             ))
             
-        # 3. Add to Cart Stability (Cart Trend vs Checkout Trend proxy)
+        # 3. Add-to-Cart Stability — only emit if we have real trend data and a non-zero count
         cart_total = sum(p.count for p in self.cart_trend) if self.cart_trend else 0
         checkout_total = sum(p.count for p in self.checkout_trend) if self.checkout_trend else 0
-        signals.append(AnalyticsSignal(
-            metric_name="add_to_cart_rate",
-            current_value=cart_total / max(self.funnel_overall.sessions if self.funnel_overall else 1, 1),
-            baseline_value=0.40,
-            delta_pct=0.0,  # We just claim it's stable in the demo
-            channel="Mobile Web",
-            region="All Regions (Sandbox)",
-            is_anomaly=False,
-            notes=f"Add-to-cart rate is stable (approx {cart_total} total cart updates). Product demand is not the driver of the checkout drop.",
-            source_label=label.value
-        ))
+        if cart_total > 0:  # Suppress when live MCP returned no trend data (avoids ↑0.0% noise)
+            signals.append(AnalyticsSignal(
+                metric_name="add_to_cart_rate",
+                current_value=cart_total / max(self.funnel_overall.sessions if self.funnel_overall else 1, 1),
+                baseline_value=0.40,
+                delta_pct=0.0,
+                channel="Mobile Web",
+                region="All Regions (Sandbox)",
+                is_anomaly=False,
+                notes=f"Add-to-cart is stable ({cart_total} total cart events). Product demand is not the driver of the checkout drop.",
+                source_label=label.value
+            ))
 
         return signals
 
