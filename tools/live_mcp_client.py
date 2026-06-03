@@ -18,6 +18,57 @@ from tools.live_evidence_adapter import LiveEvidenceBundle
 
 CACHE_FILE_PATH = Path(__file__).parent.parent / "data" / "live_evidence_cache.json"
 
+_DATE_KEYS = ("date", "label", "timestamp", "group", "key", "name")
+_COUNT_KEYS = ("count", "value", "total", "metric")
+
+
+def normalize_trend_response(payload: object) -> list:
+    """
+    Converts an execute_analytics_eql response into a List[dict] suitable for
+    LiveEvidenceBundle.checkout_trend / cart_trend (List[TrendPoint]).
+
+    Tolerates:
+    - Already a list of dicts/tuples
+    - A dict with 'data', 'rows', 'values', or 'table.rows' keys
+    - Rows shaped as [date, count] lists or dicts with flexible field names
+    - Completely unexpected shapes → returns [] and does not raise
+    """
+    if isinstance(payload, list):
+        rows = payload
+    elif isinstance(payload, dict):
+        # Try common EQL response envelope keys
+        rows = (
+            payload.get("data")
+            or payload.get("rows")
+            or payload.get("values")
+            or (payload.get("table") or {}).get("rows")
+            or []
+        )
+        if not isinstance(rows, list):
+            return []
+    else:
+        return []
+
+    result = []
+    for row in rows:
+        try:
+            if isinstance(row, (list, tuple)) and len(row) >= 2:
+                date_val = str(row[0])
+                raw_count = row[1]
+                count_val = int(raw_count) if isinstance(raw_count, (int, float)) else (
+                    int(raw_count) if str(raw_count).isdigit() else 0
+                )
+                result.append({"date": date_val, "count": count_val})
+            elif isinstance(row, dict):
+                date_val = next((str(row[k]) for k in _DATE_KEYS if k in row), None)
+                count_val = next((row[k] for k in _COUNT_KEYS if k in row), None)
+                if date_val is not None and count_val is not None:
+                    result.append({"date": date_val, "count": int(count_val) if isinstance(count_val, (int, float)) else 0})
+        except Exception:
+            # Malformed row — skip silently
+            continue
+    return result
+
 async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], None]] = None) -> LiveEvidenceBundle:
     """
     Connects to the Bloomreach Analytics MCP and executes the designated EQL queries.
@@ -101,37 +152,14 @@ async def refresh_live_mcp_evidence(progress_callback: Optional[Callable[[str], 
                                         "checkouts": checkouts,
                                         "conversion_rate": checkouts / sessions if sessions > 0 else 0.0
                                     }
-                                # Normalize trend queries → List[TrendPoint]-compatible list
+                                # Normalize trend queries via helper
                                 elif intent in ("checkout_trend", "cart_trend"):
-                                    if isinstance(parsed_content, list):
-                                        pass  # already a list, use as-is
-                                    elif isinstance(parsed_content, dict):
-                                        # Try to extract rows from EQL response shape
-                                        # Common shapes: {"data": [[date, count], ...]} or {"rows": [...]}
-                                        rows = (
-                                            parsed_content.get("data")
-                                            or parsed_content.get("rows")
-                                            or []
-                                        )
-                                        if isinstance(rows, list):
-                                            normalized = []
-                                            for row in rows:
-                                                if isinstance(row, (list, tuple)) and len(row) >= 2:
-                                                    normalized.append({"date": str(row[0]), "count": int(row[1]) if str(row[1]).isdigit() else 0})
-                                                elif isinstance(row, dict) and "date" in row and "count" in row:
-                                                    normalized.append(row)
-                                            parsed_content = normalized
-                                        else:
-                                            # Unknown shape — safe fallback
-                                            parsed_content = []
-                                    else:
-                                        parsed_content = []
+                                    parsed_content = normalize_trend_response(parsed_content)
                             except json.JSONDecodeError:
-                                # Non-JSON text response — safe fallback for trend fields
                                 if intent in ("checkout_trend", "cart_trend"):
                                     parsed_content = []
 
-                        # Safety coerce: if a List[TrendPoint] field ended up as a non-list, clear it
+                        # Safety coerce: guarantee trend fields are always a list
                         if intent in ("checkout_trend", "cart_trend") and not isinstance(parsed_content, list):
                             parsed_content = []
 
